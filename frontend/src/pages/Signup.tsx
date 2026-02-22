@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import axios from "axios";
-import api from "../api";
+import useAuth from "../context/useAuth";
 
 type UserType = "customer" | "producer";
 
@@ -14,8 +14,10 @@ type SignupFormData = {
 };
 
 const Signup = () => {
-	const navigate = useNavigate();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { registerUser } = useAuth();
+
   const [userType, setUserType] = useState<UserType>("customer");
   const [formData, setFormData] = useState<SignupFormData>({
     email: "",
@@ -31,6 +33,7 @@ const Signup = () => {
   }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -46,29 +49,24 @@ const Signup = () => {
       return;
     }
 
-    const payload = {
-      email: formData.email,
-      first_name: formData.first_name,
-      last_name: formData.last_name,
-      password: formData.password,
-      role: userType,
-    };
-
     try {
-      const res = await api.post("/api/auth/register/", payload);
-      if (res.status === 201) {
-        console.log(res.data);
-        alert("Success!");
-		navigate("/login")
-      }
+      await registerUser({
+        email: formData.email,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        password: formData.password,
+        role: userType,
+      });
+
+      alert("Signup successful");
+      navigate("/login");
     } catch (err) {
-		if (axios.isAxiosError(err)) {
-			const data = err.response?.data;
-			alert(JSON.stringify(data))
-		} else {
-			alert("Something went wrong")
-		}
-      
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data;
+        alert(JSON.stringify(data));
+      } else {
+        alert("Something went wrong");
+      }
     }
   };
   return (
