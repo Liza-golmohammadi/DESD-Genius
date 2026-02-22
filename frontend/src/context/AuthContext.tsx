@@ -50,7 +50,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   const registerUser = async (payload: RegisterPayload) => {
     await api.post("/api/auth/register/", payload);
     //auto login?
-
     /* 
       await loginUser({
       email: payload.email,
