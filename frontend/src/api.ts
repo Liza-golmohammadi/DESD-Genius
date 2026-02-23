@@ -1,7 +1,10 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://127.0.0.1:8000", //import.meta.env.VITE_API_URL
+  baseURL: import.meta.env.VITE_API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  }
 });
 
 //interceptors
@@ -18,6 +21,8 @@ api.interceptors.request.use(
   },
 );
 
+// TODO: queue for multiple 401 requests or _retry flag?
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -27,14 +32,11 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
       try {
-        const res = await axios.post(
-          "http://127.0.0.1:8000/api/token/refresh/",
-          { refresh },
-        );
+        const res = await api.post("/api/token/refresh/", { refresh });
         localStorage.setItem("access", res.data.access);
         error.config.headers.Authorization = `Bearer ${res.data.access}`;
 
-        return axios(error.config);
+        return api.request(error.config);
       } catch {
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");

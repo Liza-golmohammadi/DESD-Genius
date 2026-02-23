@@ -31,7 +31,6 @@ interface LoginPayload {
 interface AuthContextType {
   user: User | null;
   authTokens: AuthTokens | null;
-  loading: boolean;
   loginUser: (payload: LoginPayload) => Promise<void>;
   registerUser: (payload: RegisterPayload) => Promise<void>;
   logoutUser: () => void;
@@ -45,7 +44,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authTokens, setAuthTokens] = useState<AuthTokens | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const registerUser = async (payload: RegisterPayload) => {
     await api.post("/api/auth/register/", payload);
@@ -81,21 +79,16 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       const refresh = localStorage.getItem("refresh");
 
       if (!access || !refresh) {
-        setLoading(false);
         return;
       }
       setAuthTokens({ access, refresh });
       try {
         await fetchCurrentUser();
-      } catch (e) {
+      } catch {
         logoutUser();
-      } finally {
-        setLoading(false);
-      }
-      
-    }
+      } 
+    };
     auth();
-
   }, []);
 
   const logoutUser = () => {
@@ -105,8 +98,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     setUser(null);
   };
   const contextData = useMemo(
-    () => ({ user, authTokens, loading, loginUser, registerUser, logoutUser }),
-    [user, authTokens, loading],
+    () => ({ user, authTokens, loginUser, registerUser, logoutUser }),
+    [user, authTokens, loginUser, registerUser, logoutUser],
   );
   return (
     <AuthContext.Provider value={contextData}>{children}</AuthContext.Provider>

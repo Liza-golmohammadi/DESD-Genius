@@ -1,16 +1,28 @@
+import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router";
+import useAuth from "./context/useAuth";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import User from "./pages/User";
 
 function Logout() {
-  localStorage.clear();
+  const { logoutUser } = useAuth();
+
+  useEffect(() => {
+    logoutUser();
+  }, []);
+
   return <Navigate to="/login" />;
 }
 
 function SignupAndLogout() {
-  localStorage.clear();
+  const { logoutUser } = useAuth();
+
+  useEffect(() => {
+    logoutUser();
+  }, []);
+
   return <Signup />;
 }
 
