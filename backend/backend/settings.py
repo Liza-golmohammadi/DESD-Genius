@@ -43,7 +43,7 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.environ.get("JWT_ACCESS_MINUTES", "15"))),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.environ.get("JWT_REFRESH_DAYS", "1"))),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.environ.get("JWT_REFRESH_DAYS", "30"))),
 }
 
 
@@ -60,6 +60,7 @@ INSTALLED_APPS = [
 	'rest_framework_simplejwt',
 	'corsheaders',
 	'api',
+	'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [

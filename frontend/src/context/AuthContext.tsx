@@ -1,4 +1,11 @@
-import { createContext, useState, useMemo, useEffect } from "react";
+import {
+  createContext,
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+} from "react";
+import { useNavigate } from "react-router";
 import api from "../api";
 
 interface RegisterPayload {
@@ -31,9 +38,11 @@ interface LoginPayload {
 interface AuthContextType {
   user: User | null;
   authTokens: AuthTokens | null;
+  loading: boolean;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>; // set user
   loginUser: (payload: LoginPayload) => Promise<void>;
   registerUser: (payload: RegisterPayload) => Promise<void>;
-  logoutUser: () => void;
+  logoutUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -44,34 +53,47 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authTokens, setAuthTokens] = useState<AuthTokens | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const registerUser = async (payload: RegisterPayload) => {
-    await api.post("/api/auth/register/", payload);
-    //auto login?
-    /* 
-      await loginUser({
-      email: payload.email,
-      password: payload.password
-    }) 
-    */
-  };
+  const navigate = useNavigate();
 
-  const loginUser = async ({ email, password }: LoginPayload) => {
-    const token = await api.post<AuthTokens>("/api/token/", {
-      email,
-      password,
-    });
-    localStorage.setItem("access", token.data.access);
-    localStorage.setItem("refresh", token.data.refresh);
-    setAuthTokens(token.data);
+  const logoutUser = useCallback(async () => {
+    try {
+      const refresh = localStorage.getItem("refresh");
+      if (refresh) {
+        await api.post("/api/auth/logout/", { refresh });
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      setAuthTokens(null);
+      setUser(null);
+    }
+  }, []);
 
-    await fetchCurrentUser();
-  };
+  const loginUser = useCallback(
+    async ({ email, password }: LoginPayload) => {
+      const token = await api.post<AuthTokens>("/api/token/", {
+        email,
+        password,
+      });
+      localStorage.setItem("access", token.data.access);
+      localStorage.setItem("refresh", token.data.refresh);
+      setAuthTokens(token.data);
 
-  const fetchCurrentUser = async () => {
-    const res = await api.get<User>("/api/auth/user/");
-    setUser(res.data);
-  };
+      const res = await api.get<User>("/api/auth/user/");
+      setUser(res.data);
+
+      if (res.data.role === "producer") {
+        navigate("/producer/products");
+      } else {
+        navigate("/");
+      }
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     const auth = async () => {
@@ -79,27 +101,36 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       const refresh = localStorage.getItem("refresh");
 
       if (!access || !refresh) {
+        setLoading(false);
         return;
       }
       setAuthTokens({ access, refresh });
       try {
-        await fetchCurrentUser();
+        const res = await api.get<User>("/api/auth/user/");
+        setUser(res.data);
       } catch {
         logoutUser();
-      } 
+      } finally {
+        setLoading(false);
+      }
     };
     auth();
   }, []);
 
-  const logoutUser = () => {
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    setAuthTokens(null);
-    setUser(null);
-  };
+  const registerUser = useCallback(
+    async (payload: RegisterPayload) => {
+      await api.post("/api/auth/register/", payload);
+      await loginUser({
+        email: payload.email,
+        password: payload.password,
+      });
+    },
+    [loginUser],
+  );
+
   const contextData = useMemo(
-    () => ({ user, authTokens, loginUser, registerUser, logoutUser }),
-    [user, authTokens, loginUser, registerUser, logoutUser],
+    () => ({ user, authTokens, loading, setUser, loginUser, registerUser, logoutUser }),
+    [user, authTokens, loading, loginUser, registerUser, logoutUser],
   );
   return (
     <AuthContext.Provider value={contextData}>{children}</AuthContext.Provider>

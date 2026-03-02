@@ -1,11 +1,11 @@
 import useAuth from "../context/useAuth";
 
 const User = () => {
-  const { user } = useAuth();
-  console.log(user);
+  const { user, loading } = useAuth();
+  if (loading) return <p>Loading...</p>;
 
   if (!user) {
-    return <div>Loading...</div>;
+    return null;
   }
 
   return (

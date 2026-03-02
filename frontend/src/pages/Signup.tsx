@@ -59,7 +59,7 @@ const Signup = () => {
       });
 
       alert("Signup successful");
-      navigate("/login");
+
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const data = err.response?.data;

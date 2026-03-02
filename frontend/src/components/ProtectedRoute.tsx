@@ -1,18 +1,16 @@
-import type React from "react"
-import useAuth from "../context/useAuth"
-import { Navigate } from "react-router"
+import useAuth from "../context/useAuth";
+import { Navigate, Outlet } from "react-router";
 
-interface Props {
-	children: React.ReactNode
-}
+const ProtectedRoute = ({ allowedRoles }: { allowedRoles: string[] }) => {
+  const { user, loading } = useAuth();
 
-const ProtectedRoute = ({children} : Props) => {
-	const {authTokens} = useAuth()
+  if (loading) return <p>Loading...</p>;
 
-	if (!authTokens) {
-		return <Navigate to="/login" />
-	}
-  return children
-}
+  if (!user) return <Navigate to="/login" />;
+  if (!user.role || !allowedRoles.includes(user.role))
+    return <Navigate to="/" />;
 
-export default ProtectedRoute
+  return <Outlet />;
+};
+
+export default ProtectedRoute;
