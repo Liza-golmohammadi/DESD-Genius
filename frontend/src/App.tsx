@@ -42,7 +42,7 @@ function App() {
         path="/producer"
         element={<ProtectedRoute allowedRoles={["producer"]} />} 
       >
-        <Route path="profile" element={<ProducerDashboard />} />  
+        <Route path="dashboard" element={<ProducerDashboard />} />  
       </Route>
 
       {/* Customer Only */}

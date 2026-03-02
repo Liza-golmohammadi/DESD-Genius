@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router";
+import { useSearchParams } from "react-router";
 import axios from "axios";
 import useAuth from "../context/useAuth";
 
@@ -14,7 +14,6 @@ type SignupFormData = {
 };
 
 const Signup = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { registerUser } = useAuth();
 

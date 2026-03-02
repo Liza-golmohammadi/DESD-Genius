@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       setUser(res.data);
 
       if (res.data.role === "producer") {
-        navigate("/producer/products");
+        navigate("/producer/dashboard");
       } else {
         navigate("/");
       }
