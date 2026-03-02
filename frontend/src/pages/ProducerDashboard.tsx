@@ -1,10 +1,10 @@
 import { NavLink } from "react-router"
 
 
-const Products = () => {
+const ProducerDashboard = () => {
   return (
 	<div>
-    <p>Products</p>
+    <p>Producer Dashboard</p>
 
     <NavLink to="/user">User</NavLink>
   </div>
@@ -12,4 +12,4 @@ const Products = () => {
   )
 }
 
-export default Products
+export default ProducerDashboard

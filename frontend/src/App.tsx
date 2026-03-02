@@ -6,7 +6,7 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import User from "./pages/User";
 import ProtectedRoute from "./components/ProtectedRoute";
-import Products from "./pages/Products";
+import ProducerDashboard from "./pages/ProducerDashboard";
 import Orders from "./pages/Orders";
 
 function Logout() {
@@ -40,9 +40,9 @@ function App() {
       {/* Producer Only */}
       <Route
         path="/producer"
-        element={<ProtectedRoute allowedRoles={["producer"]} />} /* PRODUCER DASHBOARD */
+        element={<ProtectedRoute allowedRoles={["producer"]} />} 
       >
-        <Route path="products" element={<Products />} />  
+        <Route path="profile" element={<ProducerDashboard />} />  
       </Route>
 
       {/* Customer Only */}
