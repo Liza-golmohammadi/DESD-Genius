@@ -75,10 +75,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
   const loginUser = useCallback(
     async ({ email, password }: LoginPayload) => {
-      const token = await api.post<AuthTokens>("/api/token/", {
-        email,
-        password,
-      });
+      const token = await api.post<AuthTokens>("/api/auth/login/", { email, password });
       localStorage.setItem("access", token.data.access);
       localStorage.setItem("refresh", token.data.refresh);
       setAuthTokens(token.data);

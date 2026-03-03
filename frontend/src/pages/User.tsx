@@ -21,12 +21,8 @@ const row: React.CSSProperties = {
 const label: React.CSSProperties = { opacity: 0.7 };
 
 const User = () => {
-<<<<<<< HEAD
-  const { user } = useAuth();
-=======
   const { user, loading } = useAuth();
   if (loading) return <p>Loading...</p>;
->>>>>>> auth
 
   // Frontend-only guard: if there is no token, we are not "loading",
   // we are logged out.
@@ -50,7 +46,6 @@ const User = () => {
   // If token exists but user is still null, show a loading state
   // (and avoid “forever loading” by giving the user an action).
   if (!user) {
-<<<<<<< HEAD
     return (
       <div style={card}>
         <h2 style={{ marginTop: 0 }}>Loading your profile…</h2>
@@ -77,9 +72,6 @@ const User = () => {
         </div>
       </div>
     );
-=======
-    return null;
->>>>>>> auth
   }
 
   return (

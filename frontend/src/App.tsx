@@ -27,18 +27,11 @@ function Logout() {
   return <Navigate to="/login" replace />;
 }
 
-function SignupAndLogout() {
-  const { logoutUser } = useAuth();
+function Layout() {
+  const { user, authTokens } = useAuth();
 
-  useEffect(() => {
-    logoutUser();
-  }, [logoutUser]);
-
-  return <Signup />;
-}
-
-function Layout({ isAuthed }: { isAuthed: boolean }) {
-  const { user } = useAuth();
+  // Reactive auth state (updates right after login/logout)
+  const isAuthed = !!authTokens?.access || !!localStorage.getItem("access");
 
   const headerWrap: React.CSSProperties = {
     position: "sticky",
@@ -117,7 +110,14 @@ function Layout({ isAuthed }: { isAuthed: boolean }) {
             </nav>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
             {isAuthed && user?.email && <span style={meta}>{user.email}</span>}
 
             {!isAuthed ? (
@@ -147,47 +147,43 @@ function Layout({ isAuthed }: { isAuthed: boolean }) {
 
 // Redirect users away from auth pages depending on login state
 function AuthGate({
-  isAuthed,
   children,
 }: {
-  isAuthed: boolean;
   children: React.ReactNode;
 }) {
+  const { authTokens } = useAuth();
+  const isAuthed = !!authTokens?.access || !!localStorage.getItem("access");
   const location = useLocation();
 
   if (isAuthed) {
-    // If already logged in, going to /login or /signup should go to /user
     return <Navigate to="/user" replace state={{ from: location }} />;
   }
-
   return <>{children}</>;
 }
 
 // Protect routes like /user
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const isAuthed = !!localStorage.getItem("access");
+  const { authTokens } = useAuth();
+  const isAuthed = !!authTokens?.access || !!localStorage.getItem("access");
   const location = useLocation();
 
   if (!isAuthed) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
-
   return <>{children}</>;
 }
 
 function App() {
-  const isAuthed = !!localStorage.getItem("access");
-
   return (
     <Routes>
-      <Route element={<Layout isAuthed={isAuthed} />}>
+      <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
 
         <Route
           path="/signup"
           element={
-            <AuthGate isAuthed={isAuthed}>
-              <SignupAndLogout />
+            <AuthGate>
+              <Signup />
             </AuthGate>
           }
         />
@@ -195,7 +191,7 @@ function App() {
         <Route
           path="/login"
           element={
-            <AuthGate isAuthed={isAuthed}>
+            <AuthGate>
               <Login />
             </AuthGate>
           }
@@ -203,7 +199,6 @@ function App() {
 
         <Route path="/logout" element={<Logout />} />
 
-        {/* Basic user page: must be logged in */}
         <Route
           path="/user"
           element={
@@ -213,12 +208,10 @@ function App() {
           }
         />
 
-        {/* Producer Only */}
         <Route element={<ProtectedRoute allowedRoles={["producer"]} />}>
           <Route path="/producer/dashboard" element={<ProducerDashboard />} />
         </Route>
 
-        {/* Customer Only */}
         <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
           <Route path="/orders" element={<Orders />} />
         </Route>
