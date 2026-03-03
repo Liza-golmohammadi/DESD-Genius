@@ -1,29 +1,139 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.core.validators import MinValueValidator
+from django.utils import timezone
 
 User = get_user_model()
 
+
 class Category(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
+
+    class Meta:
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
 
+
+class ProductQuerySet(models.QuerySet):
+    def visible_to_customers(self):
+        # Customer browse: available, in stock, and in season
+        today = timezone.localdate()
+        return (
+            self.filter(is_available=True, stock_quantity__gt=0)
+            .filter(
+                models.Q(available_from__isnull=True) | models.Q(available_from__lte=today),
+                models.Q(available_to__isnull=True) | models.Q(available_to__gte=today),
+            )
+        )
+
+    def for_category(self, category_id):
+        return self.filter(category_id=category_id) if category_id else self
+
+    def search(self, text):
+        if not text:
+            return self
+        return self.filter(models.Q(name__icontains=text) | models.Q(description__icontains=text))
+
+    def organic(self, flag):
+        if flag is None:
+            return self
+        return self.filter(organic_certified=flag)
+
+
 class Product(models.Model):
-    name = models.CharField(max_length=255)
+    # Identifiers / metadata
+    sku = models.CharField(max_length=32, blank=True, db_index=True)
+    name = models.CharField(max_length=255, db_index=True)
     description = models.TextField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    stock_quantity = models.IntegerField()
-    producer = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        limit_choices_to={'role': 'producer'}
+
+    # Commercial
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
     )
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    unit = models.CharField(max_length=50, default="unit")  # e.g., kg, bunch, dozen
+    image_url = models.URLField(blank=True)
+
+    # Inventory + availability
+    stock_quantity = models.IntegerField(validators=[MinValueValidator(0)])
+    low_stock_threshold = models.IntegerField(default=5, validators=[MinValueValidator(0)])
     is_available = models.BooleanField(default=True)
-    allergens = models.TextField(blank=True)
+
+    # Seasonal window (optional; leave null for year-round)
+    available_from = models.DateField(null=True, blank=True)  # e.g., 2026-06-01
+    available_to = models.DateField(null=True, blank=True)    # e.g., 2026-08-31
+
+    # Safety & labels
+    allergens = models.TextField(blank=True)  # keep as text for compatibility in Sprint 1
     organic_certified = models.BooleanField(default=False)
     harvest_date = models.DateField()
 
+    # Ownership
+    producer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'producer'},
+        related_name="products",
+        db_index=True,
+    )
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="products",
+        db_index=True
+    )
+
+    # Auditing
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = ProductQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(stock_quantity__gte=0),
+                name="product_stock_non_negative",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(price__gte=0),
+                name="product_price_non_negative",
+            ),
+            # Seasonal sanity: if both dates are set, from <= to
+            models.CheckConstraint(
+                condition=(
+                    models.Q(available_from__isnull=True)
+                    | models.Q(available_to__isnull=True)
+                    | models.Q(available_from__lte=models.F("available_to"))
+                ),
+                name="product_season_range_valid",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["category", "is_available"]),
+            models.Index(fields=["producer", "is_available"]),
+        ]
+
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.producer.username})"
+
+    @property
+    def is_in_season(self) -> bool:
+        today = timezone.localdate()
+        if self.available_from and today < self.available_from:
+            return False
+        if self.available_to and today > self.available_to:
+            return False
+        return True
+
+    @property
+    def is_low_stock(self) -> bool:
+        return self.stock_quantity <= self.low_stock_threshold
+
+    def is_orderable(self) -> bool:
+        # Central rule for “can the user buy it”
+        return self.is_available and self.stock_quantity > 0 and self.is_in_season
