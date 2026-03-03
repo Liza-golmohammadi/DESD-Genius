@@ -1,3 +1,18 @@
+## Changes (Auth Frontend - Change 2)
+
+### Docker
+- Updated `docker-compose.yaml` so the **Docker-run frontend can reach the backend API** by setting `VITE_API_URL` via compose environment.
+- Verified **one-command Docker run** works (backend + frontend containers start successfully; backend runs migrations on startup; Vite runs on `5173`, backend on `8000`).
+
+### Security
+- Fixed auth flow so **login uses the correct backend endpoint** (`POST /api/auth/login/`) instead of the older `/api/token/` flow.
+- Resolved Docker/browser API-call issues that caused login/refresh failures (auth requests now hit the backend reliably).
+
+
+
+
+
+
 ## Changes (Auth Frontend - Change 1)
 
 ### UI / UX
