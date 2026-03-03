@@ -8,6 +8,14 @@
 - Fixed auth flow so **login uses the correct backend endpoint** (`POST /api/auth/login/`) instead of the older `/api/token/` flow.
 - Resolved Docker/browser API-call issues that caused login/refresh failures (auth requests now hit the backend reliably).
 
+### Files touched
+- `docker-compose.yaml` (set VITE_API_URL for Docker-run frontend → backend API connectivity)
+
+- `frontend/.env` (only if you changed it; in your case it stayed as VITE_API_URL="http://localhost:8000" but include it if you edited it at all)
+
+- `frontend/src/context/AuthContext.tsx` (login flow updated to use POST /api/auth/login/ instead of /api/token/)
+
+- `frontend/src/api.ts` (only if you adjusted baseURL or interceptors during the Docker/browser fix)
 
 
 
