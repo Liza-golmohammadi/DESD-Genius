@@ -1,9 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-// If your project already has an axios instance (api.ts), you can swap fetch() to that later.
-// For now I use bc fetch is simplest and doesn't depend on imports.
-
 type Role = "customer" | "producer";
 const ROLE_LABEL: Record<Role, string> = {
   customer: "Customer",
@@ -35,11 +32,7 @@ const styles = {
   } as React.CSSProperties,
   title: { margin: 0, fontSize: 24 } as React.CSSProperties,
   subtitle: { margin: "8px 0 0", opacity: 0.75 } as React.CSSProperties,
-  tabsRow: {
-    display: "flex",
-    gap: 10,
-    marginTop: 16,
-  } as React.CSSProperties,
+  tabsRow: { display: "flex", gap: 10, marginTop: 16 } as React.CSSProperties,
   tab: (active: boolean) =>
     ({
       flex: 1,
@@ -51,11 +44,7 @@ const styles = {
       color: active ? "#fff" : "#111",
       fontWeight: 600,
     }) as React.CSSProperties,
-  form: {
-    display: "grid",
-    gap: 12,
-    marginTop: 16,
-  } as React.CSSProperties,
+  form: { display: "grid", gap: 12, marginTop: 16 } as React.CSSProperties,
   grid2: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -69,7 +58,6 @@ const styles = {
     border: "1px solid #ddd",
     outline: "none",
   } as React.CSSProperties,
-  hint: { fontSize: 12, opacity: 0.7, marginTop: 6 } as React.CSSProperties,
   errorBox: {
     background: "#ffecec",
     border: "1px solid #ffc9c9",
@@ -147,9 +135,8 @@ export default function Signup() {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      // DRF often returns {field: ["msg"]} or {detail: "..."}
       const msg =
-        data?.detail ||
+        (data as any)?.detail ||
         Object.entries(data || {})
           .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
           .join(" | ") ||
@@ -172,48 +159,44 @@ export default function Signup() {
 
     setLoading(true);
 
-    // Try a rich payload first (good UX if backend accepts these fields)
-    const richPayload: any = {
+    const basePayload: any = {
       email: form.email.trim(),
       password: form.password,
-      role, // backend confirmed it returns role on login; include here for register if supported
+      role: ROLE_CANDIDATES[role][0],
     };
 
-    // Only include optional fields if user filled them (avoids backend rejecting blanks)
-    if (form.first_name.trim()) richPayload.first_name = form.first_name.trim();
-    if (form.last_name.trim()) richPayload.last_name = form.last_name.trim();
+    if (form.first_name.trim()) basePayload.first_name = form.first_name.trim();
+    if (form.last_name.trim()) basePayload.last_name = form.last_name.trim();
 
     try {
-  await postRegister(richPayload);
-  setSuccess("Account created. Redirecting to login…");
-  setTimeout(() => navigate("/login"), 800);
-} catch (err: any) {
-  const message = String(err?.message || "Register failed");
+      await postRegister(basePayload);
+      setSuccess("Account created. Redirecting to login…");
+      setTimeout(() => navigate("/login"), 800);
+    } catch (err: any) {
+      const message = String(err?.message || "Register failed");
 
-  // If the backend complains about role choice, try common variants automatically
-  if (message.toLowerCase().includes("role") && message.toLowerCase().includes("valid choice")) {
-    let lastErr: any = err;
+      // If backend complains about role choice, try common variants automatically
+      if (message.toLowerCase().includes("role") && message.toLowerCase().includes("valid choice")) {
+        let lastErr: any = err;
 
-    for (const candidate of ROLE_CANDIDATES[role]) {
-      try {
-        const retryPayload = { ...richPayload, role: candidate };
-        await postRegister(retryPayload);
-        setSuccess("Account created. Redirecting to login…");
-        setTimeout(() => navigate("/login"), 800);
-        setLoading(false);
-        return;
-      } catch (e: any) {
-        lastErr = e;
+        for (const candidate of ROLE_CANDIDATES[role]) {
+          try {
+            await postRegister({ ...basePayload, role: candidate });
+            setSuccess("Account created. Redirecting to login…");
+            setTimeout(() => navigate("/login"), 800);
+            setLoading(false);
+            return;
+          } catch (e: any) {
+            lastErr = e;
+          }
+        }
+        setError(String(lastErr?.message || message));
+      } else {
+        setError(message);
       }
+    } finally {
+      setLoading(false);
     }
-
-    setError(String(lastErr?.message || message));
-  } else {
-    setError(message);
-  }
-} finally {
-  setLoading(false);
-}
   }
 
   return (
@@ -221,7 +204,7 @@ export default function Signup() {
       <div style={styles.card}>
         <h1 style={styles.title}>Create account</h1>
         <p style={styles.subtitle}>
-          Sign up as a <b>{role}</b>. You can log in immediately after.
+          Sign up as a <b>{ROLE_LABEL[role]}</b>. You can log in immediately after.
         </p>
 
         <div style={styles.tabsRow}>
@@ -302,9 +285,7 @@ export default function Signup() {
             </div>
           </div>
 
-          {passwordMismatch && (
-            <div style={styles.errorBox}>Passwords do not match.</div>
-          )}
+          {passwordMismatch && <div style={styles.errorBox}>Passwords do not match.</div>}
 
           {error && <div style={styles.errorBox}>{error}</div>}
           {success && <div style={styles.successBox}>{success}</div>}
@@ -319,8 +300,6 @@ export default function Signup() {
               <a href="/login" style={{ fontWeight: 700 }}>
                 Login
               </a>
-
-            
             </span>
           </div>
         </form>

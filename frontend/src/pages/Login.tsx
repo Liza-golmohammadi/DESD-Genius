@@ -27,11 +27,7 @@ const styles = {
   } as React.CSSProperties,
   title: { margin: 0, fontSize: 24 } as React.CSSProperties,
   subtitle: { margin: "8px 0 0", opacity: 0.75 } as React.CSSProperties,
-  form: {
-    display: "grid",
-    gap: 12,
-    marginTop: 16,
-  } as React.CSSProperties,
+  form: { display: "grid", gap: 12, marginTop: 16 } as React.CSSProperties,
   label: { fontSize: 13, opacity: 0.8, marginBottom: 6 } as React.CSSProperties,
   input: {
     width: "100%",
@@ -73,7 +69,6 @@ const styles = {
     cursor: "pointer",
     fontWeight: 600,
   } as React.CSSProperties,
-  hint: { fontSize: 12, opacity: 0.7, marginTop: 6 } as React.CSSProperties,
 };
 
 export default function Login() {
@@ -114,9 +109,12 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await loginUser({ email: formData.email.trim(), password: formData.password });
+      await loginUser({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
 
-      // If user was redirected here from a protected page, go back there.
+      // If redirected here from a protected route, go back there
       const from = (location.state as any)?.from?.pathname as string | undefined;
       navigate(from || "/user", { replace: true });
     } catch (err) {
@@ -126,7 +124,9 @@ export default function Login() {
           (data && (data.detail || data.message)) ||
           (data && typeof data === "object"
             ? Object.entries(data)
-                .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+                .map(([k, v]) =>
+                  `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`
+                )
                 .join(" | ")
             : null) ||
           `Login failed (${err.response?.status ?? "unknown"})`;
@@ -139,8 +139,6 @@ export default function Login() {
     }
   };
 
-
-  // for password area - uses /api/auth/login/ via existing loginUser().
   return (
     <div style={styles.page}>
       <div style={styles.card}>
@@ -188,7 +186,11 @@ export default function Login() {
 
           {error && <div style={styles.errorBox}>{error}</div>}
 
-          <button type="submit" style={styles.button(!canSubmit)} disabled={!canSubmit}>
+          <button
+            type="submit"
+            style={styles.button(!canSubmit)}
+            disabled={!canSubmit}
+          >
             {loading ? "Logging in…" : "Log in"}
           </button>
 

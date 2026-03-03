@@ -26,7 +26,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && originalRequest._retry) {
+      originalRequest._retry = true;
       const refresh = localStorage.getItem("refresh");
       if (!refresh) {
         return Promise.reject(error);
@@ -36,7 +39,7 @@ api.interceptors.response.use(
         localStorage.setItem("access", res.data.access);
         error.config.headers.Authorization = `Bearer ${res.data.access}`;
 
-        return api.request(error.config);
+        return api.request(originalRequest);
       } catch {
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");

@@ -22,3 +22,11 @@ class User(AbstractUser):
 		return f"{self.email} ({self.role})"
 
 
+class Producer(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    store_name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.store_name

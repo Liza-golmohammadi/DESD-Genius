@@ -13,6 +13,9 @@ import Signup from "./pages/Signup";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import User from "./pages/User";
+import ProtectedRoute from "./components/ProtectedRoute";
+import ProducerDashboard from "./pages/ProducerDashboard";
+import Orders from "./pages/Orders";
 
 function Logout() {
   const { logoutUser } = useAuth();
@@ -200,6 +203,7 @@ function App() {
 
         <Route path="/logout" element={<Logout />} />
 
+        {/* Basic user page: must be logged in */}
         <Route
           path="/user"
           element={
@@ -208,6 +212,16 @@ function App() {
             </RequireAuth>
           }
         />
+
+        {/* Producer Only */}
+        <Route element={<ProtectedRoute allowedRoles={["producer"]} />}>
+          <Route path="/producer/dashboard" element={<ProducerDashboard />} />
+        </Route>
+
+        {/* Customer Only */}
+        <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
+          <Route path="/orders" element={<Orders />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
