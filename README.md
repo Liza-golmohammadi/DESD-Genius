@@ -12,7 +12,7 @@
 - `docker-compose.yaml` (set VITE_API_URL for Docker-run frontend → backend API connectivity)
 
 - `frontend/.env`
-- 
+  
 - `frontend/src/context/AuthContext.tsx` (login flow updated to use POST /api/auth/login/ instead of /api/token/)
 
 - `frontend/src/api.ts` 
