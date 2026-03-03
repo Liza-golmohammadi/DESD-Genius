@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     'accounts',
     'products',
     'cart',
+    'rest_framework',
     'orders',
 ]
 
@@ -50,7 +51,7 @@ TEMPLATES = [
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
 
