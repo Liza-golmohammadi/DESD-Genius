@@ -16,6 +16,9 @@ import User from "./pages/User";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProducerDashboard from "./pages/ProducerDashboard";
 import Orders from "./pages/Orders";
+import Producers from "./pages/Producers";
+import ProducerDetail from "./pages/ProducerDetail";
+
 
 function Logout() {
   const { logoutUser } = useAuth();
@@ -178,6 +181,7 @@ function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/producers" element={<Producers />} />
 
         <Route
           path="/signup"
@@ -217,6 +221,9 @@ function App() {
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        <Route path="/producers/:id" element={<ProducerDetail />} />
+
       </Route>
     </Routes>
   );
