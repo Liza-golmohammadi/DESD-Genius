@@ -1,3 +1,32 @@
+## Changes (Producers Feature - Change 3)
+
+### Features
+- Implemented **Producers list page** that fetches and displays all producers from the backend.
+- Implemented **Producer detail page** with route parameter (`:id`) that fetches and displays a single producer’s details.
+- Added clickable producer entries to navigate from list → detail.
+
+### Backend Integration
+- Integrated with new backend endpoints:
+  - `GET /api/producers/` (list producers)
+  - `GET /api/producers/<id>/` (producer detail)
+
+### Navigation / Routing
+- Added new routes:
+  - `/producers`
+  - `/producers/:id`
+
+### UX
+- Added loading and error states for producer list + producer detail views.
+- Clean, minimal card layout consistent with existing theme.
+
+### Files touched
+- `frontend/src/App.tsx` (added routes + imports)
+- `frontend/src/pages/Producers.tsx` (new)
+- `frontend/src/pages/ProducerDetail.tsx` (new)
+
+
+
+
 ## Changes (Auth Frontend - Change 2)
 
 ### Docker
