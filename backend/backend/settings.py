@@ -46,7 +46,6 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
 
-
 # Application definition
 
 INSTALLED_APPS = [
