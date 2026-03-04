@@ -20,6 +20,7 @@
 - Clean, minimal card layout consistent with existing theme.
 
 ### Files touched
+- `backend/api/migrations/0002_create_producer_table.py` (new; creates missing Producer table for existing DBs)
 - `frontend/src/App.tsx` (added routes + imports)
 - `frontend/src/pages/Producers.tsx` (new)
 - `frontend/src/pages/ProducerDetail.tsx` (new)
