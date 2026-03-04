@@ -6,7 +6,7 @@ import {
   NavLink,
   Outlet,
   useLocation,
-} from "react-router-dom";
+} from "react-router";
 import useAuth from "./context/useAuth";
 
 import Signup from "./pages/Signup";
@@ -146,11 +146,7 @@ function Layout() {
 }
 
 // Redirect users away from auth pages depending on login state
-function AuthGate({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function AuthGate({ children }: { children: React.ReactNode }) {
   const { authTokens } = useAuth();
   const isAuthed = !!authTokens?.access || !!localStorage.getItem("access");
   const location = useLocation();

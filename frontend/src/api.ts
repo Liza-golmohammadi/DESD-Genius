@@ -7,7 +7,7 @@ const api = axios.create({
   }
 });
 
-//interceptors
+// add bearer token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("access");
@@ -20,9 +20,7 @@ api.interceptors.request.use(
     return Promise.reject(error);
   },
 );
-
-// TODO: queue for multiple 401 requests or _retry flag?
-
+// refresh access token
 api.interceptors.response.use(
   (response) => response,
   async (error) => {

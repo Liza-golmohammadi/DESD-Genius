@@ -5,8 +5,6 @@ from .models import Producer
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
-	
-
 	class Meta:
 		model = User
 		fields = [
@@ -25,7 +23,6 @@ class UserSerializer(serializers.ModelSerializer):
 		user = User.objects.create_user(**validated_data)
 		user.is_active = True # for otp, modify later
 		user.save()
-
 		if user.role == 'producer':
 			Producer.objects.create(user=user)
 

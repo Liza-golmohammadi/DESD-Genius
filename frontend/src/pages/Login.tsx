@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import axios from "axios";
 import useAuth from "../context/useAuth";
 
@@ -98,7 +98,7 @@ export default function Login() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
 
@@ -115,8 +115,9 @@ export default function Login() {
       });
 
       // If redirected here from a protected route, go back there
-      const from = (location.state as any)?.from?.pathname as string | undefined;
-      navigate(from || "/user", { replace: true });
+      // direct it to producer dashboard
+      /* const from = (location.state as any)?.from?.pathname as string | undefined;
+      navigate(from || "/user", { replace: true }); */
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const data = err.response?.data;
