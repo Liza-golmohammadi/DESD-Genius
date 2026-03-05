@@ -16,6 +16,9 @@ import User from "./pages/User";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProducerDashboard from "./pages/ProducerDashboard";
 import Orders from "./pages/Orders";
+import Producers from "./pages/Producers";
+import ProducerDetail from "./pages/ProducerDetail";
+
 
 function Logout() {
   const { logoutUser } = useAuth();
@@ -107,6 +110,25 @@ function Layout() {
                   User
                 </NavLink>
               )}
+
+              {isAuthed && user?.role === "producer" && (
+                <NavLink to="/producer/dashboard" style={pill}>
+                  Producer Dashboard
+                </NavLink>
+              )}
+
+              {isAuthed && user?.role === "customer" && (
+                <NavLink to="/orders" style={pill}>
+                  Orders
+                </NavLink>
+              )}
+
+              {isAuthed && (
+                <NavLink to="/producers" style={pill}>
+                  Producers
+                </NavLink>
+              )}
+
             </nav>
           </div>
 
@@ -174,6 +196,39 @@ function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
+      <Route
+        path="/producers"
+        element={
+          <RequireAuth>
+            <Producers />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/producers/:id"
+        element={
+          <RequireAuth>
+            <ProducerDetail />
+          </RequireAuth>
+        }
+      />
+
+      <Route path="/signup" element={<AuthGate><Signup /></AuthGate>} />
+      <Route path="/login" element={<AuthGate><Login /></AuthGate>} />
+      <Route path="/logout" element={<Logout />} />
+
+      <Route path="/user" element={<RequireAuth><User /></RequireAuth>} />
+
+      {/*Only producers can access the dashboard */}
+      <Route element={<ProtectedRoute allowedRoles={["producer"]} />}>
+        <Route path="/producer/dashboard" element={<ProducerDashboard />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
+        <Route path="/orders" element={<Orders />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
 
         <Route
           path="/signup"
@@ -212,7 +267,9 @@ function App() {
           <Route path="/orders" element={<Orders />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/producers/:id" element={<ProducerDetail />} />
+        <Route path="*" element={<Navigate to="/" replace />} />  
+
       </Route>
     </Routes>
   );

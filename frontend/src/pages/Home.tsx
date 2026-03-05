@@ -35,21 +35,43 @@ const styles = {
 export default function Home() {
   const { user } = useAuth();
   const isAuthed = !!localStorage.getItem("access") || !!user;
+  const role = (user as any)?.role as string | undefined;
 
   return (
     <div style={styles.wrap}>
       <div style={styles.card}>
         <h1 style={styles.title}>Home</h1>
         <p style={styles.subtitle}>
-          This is the landing page. Use the navigation above to access features.
+          This is the landing page. Use the navigation to access features.
         </p>
 
         <div style={styles.actions}>
+          {/* Everyone can browse producers */}
+          {isAuthed && (
+              <Link to="/producers" style={styles.action}>
+                Browse Producers
+              </Link>
+            )}
+            
           {isAuthed ? (
             <>
               <Link to="/user" style={styles.action}>
                 Your Account
               </Link>
+
+              {/* Role-based shortcuts */}
+              {role === "producer" && (
+                <Link to="/producer/dashboard" style={styles.action}>
+                  Producer Dashboard
+                </Link>
+              )}
+
+              {role === "customer" && (
+                <Link to="/orders" style={styles.action}>
+                  Orders
+                </Link>
+              )}
+
               <Link to="/logout" style={styles.action}>
                 Logout
               </Link>
