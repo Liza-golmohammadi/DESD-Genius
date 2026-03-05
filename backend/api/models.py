@@ -27,6 +27,7 @@ class Producer(models.Model):
     store_name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    contact_info = models.TextField(blank=True, default="")
 
     def __str__(self):
         return self.store_name

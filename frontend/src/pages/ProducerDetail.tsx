@@ -10,6 +10,7 @@ type Producer = {
   store_name: string | null;
   description: string | null;
   created_at: string;
+  contact_info: string | null;
 };
 
 export default function ProducerDetail() {
@@ -44,9 +45,16 @@ export default function ProducerDetail() {
         {item.store_name || `${item.first_name} ${item.last_name}`.trim() || item.email}
       </h1>
 
-      <div style={{ opacity: 0.75 }}>{item.email}</div>
-
       {item.description && <p style={{ marginTop: 12 }}>{item.description}</p>}
+
+      {item.contact_info && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontWeight: 700 }}>Contact details</div>
+          <div style={{ whiteSpace: "pre-line", opacity: 0.85 }}>
+            {item.contact_info}
+          </div>
+        </div>
+      )}
 
       <div style={{ marginTop: 16, opacity: 0.7, fontSize: 13 }}>
         Created: {new Date(item.created_at).toLocaleString()}

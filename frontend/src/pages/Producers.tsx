@@ -8,9 +8,9 @@ type Producer = {
   last_name: string;
   store_name: string | null;
   description: string | null;
+  contact_info: string | null;
   created_at: string;
 };
-
 
 export default function Producers() {
   const [items, setItems] = useState<Producer[]>([]);
@@ -37,9 +37,6 @@ export default function Producers() {
   return (
     <div style={{ maxWidth: 980, margin: "0 auto" }}>
       <h1>Producers</h1>
-      <p style={{ opacity: 0.75 }}>
-        Data from <code>GET /api/producers/</code>
-      </p>
 
       <div style={{ display: "grid", gap: 12 }}>
         {items.map((p) => (
@@ -53,21 +50,37 @@ export default function Producers() {
             }}
           >
             <a
-                href={`/producers/${p.id}`}
-                style={{ fontWeight: 800, textDecoration: "none", color: "inherit" }}
-                >
-                {p.store_name || `${p.first_name} ${p.last_name}`.trim() || p.email}
+              href={`/producers/${p.id}`}
+              style={{ fontWeight: 800, textDecoration: "none", color: "inherit" }}
+            >
+              {p.store_name || `${p.first_name} ${p.last_name}`.trim() || p.email}
             </a>
-            <div style={{ opacity: 0.75 }}>{p.email}</div>
-            {p.description && <p style={{ marginTop: 10 }}>{p.description}</p>}
+
+            {p.description && (
+              <p style={{ marginTop: 8, marginBottom: 0 }}>{p.description}</p>
+            )}
+
+            {p.contact_info && (
+              <p
+                style={{
+                  marginTop: 8,
+                  marginBottom: 0,
+                  fontSize: 13,
+                  opacity: 0.7,
+                  whiteSpace: "pre-line",
+                }}
+              >
+                 {p.contact_info}
+              </p>
+            )}
           </div>
         ))}
 
         {items.length === 0 && (
-        <div style={{ opacity: 0.7 }}>No producers yet. Register a producer account to see it here.</div>
+          <div style={{ opacity: 0.7 }}>
+            No producers yet. Register a producer account to see it here.
+          </div>
         )}
-
-        
       </div>
     </div>
   );
