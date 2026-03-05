@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     try {
       const refresh = localStorage.getItem("refresh");
       if (refresh) {
-        await api.post("/api/auth/logout/", { refresh });
+        await api.post("/accounts/auth/logout/", { refresh });
       }
     } catch (error) {
       console.error("Logout error:", error);
@@ -75,12 +75,12 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
   const loginUser = useCallback(
     async ({ email, password }: LoginPayload) => {
-      const token = await api.post<AuthTokens>("/api/auth/login/", { email, password });
+      const token = await api.post<AuthTokens>("/accounts/auth/login/", { email, password });
       localStorage.setItem("access", token.data.access);
       localStorage.setItem("refresh", token.data.refresh);
       setAuthTokens(token.data);
 
-      const res = await api.get<User>("/api/auth/user/");
+      const res = await api.get<User>("/accounts/auth/user/");
       setUser(res.data);
 
       if (res.data.role === "producer") {
@@ -103,7 +103,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       }
       setAuthTokens({ access, refresh });
       try {
-        const res = await api.get<User>("/api/auth/user/");
+        const res = await api.get<User>("/accounts/auth/user/");
         setUser(res.data);
       } catch {
         logoutUser();
@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
   const registerUser = useCallback(
     async (payload: RegisterPayload) => {
-      await api.post("/api/auth/register/", payload);
+      await api.post("/accounts/auth/register/", payload);
       await loginUser({
         email: payload.email,
         password: payload.password,

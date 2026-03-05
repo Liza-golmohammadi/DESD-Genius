@@ -64,7 +64,7 @@ api.interceptors.response.use(
     isRefreshing = true;
     try {
       const refreshRes = await axios.post(
-        `${baseURL}/api/token/refresh/`,
+        `${baseURL}/accounts/token/refresh/`,
         { refresh },
         { headers: { "Content-Type": "application/json" } }
       );

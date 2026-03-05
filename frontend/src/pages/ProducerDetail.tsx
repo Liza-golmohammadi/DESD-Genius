@@ -23,7 +23,7 @@ export default function ProducerDetail() {
     (async () => {
       try {
         setError(null);
-        const res = await api.get<Producer>(`/api/producers/${id}/`);
+        const res = await api.get<Producer>(`/accounts/producers/${id}/`);
         setItem(res.data);
       } catch (e: any) {
         setError(e?.message || "Failed to load producer");

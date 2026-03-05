@@ -10,9 +10,9 @@ from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-	path('api-auth/', include('rest_framework.urls')),
-	path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-	path('api/token/blacklist/', TokenBlacklistView.as_view(), name='token_blacklist'),
-	path('api/', include("api.urls"))
+	path('accounts-auth/', include('rest_framework.urls')),
+	path('accounts/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('accounts/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+	path('accounts/token/blacklist/', TokenBlacklistView.as_view(), name='token_blacklist'),
+	path('accounts/', include("accounts.urls"))
 ]

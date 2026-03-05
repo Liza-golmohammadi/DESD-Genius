@@ -72,7 +72,7 @@ export default function ProducerDashboard() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await api.get<ProducerMe>("/api/producer/me/");
+      const res = await api.get<ProducerMe>("/accounts/producer/me/");
       setData(res.data);
       setStoreName(res.data.store_name ?? "");
       setDescription(res.data.description ?? "");
@@ -105,7 +105,7 @@ export default function ProducerDashboard() {
     setErr(null);
 
     try {
-      await api.patch("/api/producer/me/", {
+      await api.patch("/accounts/producer/me/", {
         store_name: storeName,
         description,
         contact_info: contactInfo, // new

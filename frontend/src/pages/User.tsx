@@ -96,7 +96,7 @@ export default function User() {
 
     (async () => {
       try {
-        const res = await api.get<UserProfile>("/api/auth/user/");
+        const res = await api.get<UserProfile>("/accounts/auth/user/");
         setProfile(res.data);
         setFirstName(String(res.data.first_name ?? ""));
         setLastName(String(res.data.last_name ?? ""));
@@ -164,9 +164,9 @@ export default function User() {
 
       if (newPassword.trim()) payload.password = newPassword;
 
-      await api.patch("/api/auth/user/", payload);
+      await api.patch("/accounts/auth/user/", payload);
 
-      const refreshed = await api.get<UserProfile>("/api/auth/user/");
+      const refreshed = await api.get<UserProfile>("/accounts/auth/user/");
       setProfile(refreshed.data);
 
       setNewPassword("");
