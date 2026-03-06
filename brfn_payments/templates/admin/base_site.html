@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block branding %}
+<h1 id="site-name" style="color:#16a34a;">
+    BRFN Admin Portal
+</h1>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  :root {
+    --primary: #16a34a;
+    --secondary: #15803d;
+  }
+
+  #header {
+    background: white !important;
+    border-bottom: 3px solid #16a34a;
+  }
+
+  #header a {
+    color: #16a34a !important;
+  }
+
+  .module caption {
+    background: #16a34a !important;
+  }
+
+  .button, input[type=submit], input[type=button], .submit-row input {
+    background-color: #16a34a !important;
+    border-color: #16a34a !important;
+  }
+
+  .button:hover {
+    background-color: #15803d !important;
+  }
+</style>
+{% endblock %}

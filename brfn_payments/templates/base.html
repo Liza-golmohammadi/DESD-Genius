@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}BRFN{% endblock %}</title>
+  <style>
+    body { font-family: system-ui; margin:0; background:#0f172a; color:#e2e8f0; }
+    .nav { display:flex; gap:14px; align-items:center; padding:14px 18px; background:#111c33; }
+    .nav a { color:#7dd3fc; text-decoration:none; }
+    .nav a:hover { text-decoration:underline; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 22px 18px; }
+    .card { background:#1e293b; border-radius:16px; padding:18px; }
+    pre { background:#0b1220; padding:12px; border-radius:12px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <strong>BRFN</strong>
+    <span style="opacity:.7">Marketplace</span>
+    <span style="flex:1"></span>
+    <a href="/">Home</a>
+    <a href="/payments/">Payments</a>
+    <a href="/admin/">Admin</a>
+  </div>
+
+  <div class="wrap">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

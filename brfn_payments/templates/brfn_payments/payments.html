@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Payments | BRFN{% endblock %}
+
+{% block content %}
+<div class="card">
+
+  <h1>Mock Payment Processor</h1>
+  <p style="opacity:.7;">
+    Calculates 5% marketplace commission and stores the transaction.
+  </p>
+
+  <hr>
+
+  <form method="post" action="/payments/test-pay/">
+    {% csrf_token %}
+
+    <label><strong>Order Reference</strong></label>
+    <input
+      type="text"
+      name="order_ref"
+      value="ORD-100"
+      placeholder="e.g. ORD-100"
+    />
+
+    <label><strong>Total Amount (£)</strong></label>
+    <input
+      type="text"
+      name="total"
+      value="500.00"
+      placeholder="e.g. 500.00"
+    />
+
+    <button type="submit">
+      Run Test Payment
+    </button>
+  </form>
+
+  <hr>
+
+  <h2>Result</h2>
+
+  {% if result %}
+    <div style="
+      background:#ecfdf5;
+      border:1px solid #bbf7d0;
+      padding:16px;
+      border-radius:12px;
+      margin-top:10px;
+    ">
+      <pre style="margin:0;">{{ result }}</pre>
+    </div>
+  {% else %}
+    <p style="opacity:.6;">
+      No result yet. Submit the form to test payment logic.
+    </p>
+  {% endif %}
+
+</div>
+{% endblock %}

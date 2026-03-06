@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: brfn_db
+      POSTGRES_USER: brfn_user
+      POSTGRES_PASSWORD: brfn_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DB_NAME: brfn_db
+      DB_USER: brfn_user
+      DB_PASSWORD: brfn_pass
+      DB_HOST: db
+      DB_PORT: "5432"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

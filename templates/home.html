@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Home | BRFN{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>BRFN Digital Marketplace</h1>
+  <p style="opacity:.8;">
+    Distributed Enterprise Systems Development Project
+  </p>
+
+  <hr style="margin:20px 0;border:1px solid #334155;">
+
+  <h2>Payments & Settlements Module</h2>
+  <ul style="line-height:1.8;">
+    <li>5% marketplace commission calculation</li>
+    <li>95% producer revenue allocation</li>
+    <li>Commission record persistence (Postgres)</li>
+    <li>Status tracking (PAID / SETTLED)</li>
+  </ul>
+
+  <hr style="margin:20px 0;border:1px solid #334155;">
+
+  <h2>System Flow</h2>
+  <ol style="line-height:1.8;">
+    <li>Order submitted</li>
+    <li>Mock payment processed</li>
+    <li>Commission calculated</li>
+    <li>Producer share stored</li>
+    <li>CommissionRecord written to DB</li>
+  </ol>
+
+  <hr style="margin:20px 0;border:1px solid #334155;">
+
+  <h2>Quick Actions</h2>
+  <p>
+    <a href="/payments/" style="color:#38bdf8;">→ Go to Payments UI</a><br>
+    <a href="/admin/" style="color:#38bdf8;">→ View Commission Records (Admin)</a>
+  </p>
+</div>
+{% endblock %}
