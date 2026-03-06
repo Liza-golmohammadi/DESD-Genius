@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Routes,
   Route,
@@ -6,6 +6,7 @@ import {
   NavLink,
   Outlet,
   useLocation,
+  useNavigate,
 } from "react-router";
 import useAuth from "./context/useAuth";
 
@@ -32,23 +33,29 @@ function Logout() {
 
 function Layout() {
   const { user, authTokens } = useAuth();
+  const navigate = useNavigate();
+  const [searchInput, setSearchInput] = useState("");
 
   // Reactive auth state (updates right after login/logout)
   const isAuthed = !!authTokens?.access || !!localStorage.getItem("access");
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    navigate(`/?q=${encodeURIComponent(searchInput.trim())}`);
+  }
 
   const headerWrap: React.CSSProperties = {
     position: "sticky",
     top: 0,
     zIndex: 10,
-    background: "rgba(255,255,255,0.85)",
-    backdropFilter: "blur(10px)",
-    borderBottom: "1px solid #f0f0f0",
+    background: "#1b4332",
+    borderBottom: "1px solid #2d6a4f",
   };
 
   const headerInner: React.CSSProperties = {
-    maxWidth: 980,
+    maxWidth: 1200,
     margin: "0 auto",
-    padding: "14px 16px",
+    padding: "13px 20px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -61,44 +68,75 @@ function Layout() {
     gap: 10,
     fontWeight: 800,
     letterSpacing: 0.2,
+    color: "#fff",
+    fontSize: 15,
+    textDecoration: "none",
+    whiteSpace: "nowrap",
   };
 
   const navRow: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
     flexWrap: "wrap",
   };
 
   const pill = ({ isActive }: { isActive: boolean }): React.CSSProperties => ({
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid #e6e6e6",
+    padding: "8px 14px",
+    borderRadius: 10,
+    border: isActive ? "1px solid #40916c" : "1px solid transparent",
     textDecoration: "none",
-    fontWeight: 700,
-    color: isActive ? "#fff" : "#111",
-    background: isActive ? "#111" : "#fff",
+    fontWeight: 600,
+    fontSize: 14,
+    color: isActive ? "#fff" : "rgba(255,255,255,0.75)",
+    background: isActive ? "#2d6a4f" : "transparent",
+    transition: "background 0.15s, color 0.15s",
   });
 
   const meta: React.CSSProperties = {
-    fontSize: 13,
-    opacity: 0.75,
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid #e6e6e6",
-    background: "#fff",
-    maxWidth: 260,
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    padding: "7px 12px",
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.15)",
+    maxWidth: 200,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   };
 
+  const authBtn = (active = false): React.CSSProperties => ({
+    padding: "8px 16px",
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.3)",
+    textDecoration: "none",
+    fontWeight: 700,
+    fontSize: 13,
+    color: active ? "#1b4332" : "#fff",
+    background: active ? "#fff" : "transparent",
+    cursor: "pointer",
+  });
+
   return (
     <>
       <div style={headerWrap}>
         <div style={headerInner}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={brand}>DESD Genius</div>
+          {/* Brand + nav */}
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            {/* Leaf icon + brand name */}
+            <NavLink to="/" style={brand}>
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="#40916c">
+                <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 0-5 8" />
+              </svg>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 900, letterSpacing: 0.5 }}>
+                  BRISTOL
+                </div>
+                <div style={{ fontSize: 9, letterSpacing: 1.5, opacity: 0.75, marginTop: -2 }}>
+                  REGIONAL FOOD NETWORK
+                </div>
+              </div>
+            </NavLink>
 
             <nav style={navRow}>
               <NavLink to="/" style={pill} end>
@@ -106,53 +144,89 @@ function Layout() {
               </NavLink>
 
               {isAuthed && (
-                <NavLink to="/user" style={pill}>
-                  User
+                <NavLink to="/producers" style={pill}>
+                  Our Producers
                 </NavLink>
               )}
 
               {isAuthed && user?.role === "producer" && (
                 <NavLink to="/producer/dashboard" style={pill}>
-                  Producer Dashboard
+                  Dashboard
                 </NavLink>
               )}
 
               {isAuthed && user?.role === "customer" && (
                 <NavLink to="/orders" style={pill}>
-                  Orders
+                  My Orders
                 </NavLink>
               )}
 
-              {isAuthed && (
-                <NavLink to="/producers" style={pill}>
-                  Producers
-                </NavLink>
-              )}
-
+              <NavLink to="/user" style={pill}>
+                Sustainability
+              </NavLink>
             </nav>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
+          {/* Search bar */}
+          <form
+            onSubmit={handleSearch}
+            style={{ flex: 1, maxWidth: 420, display: "flex", margin: "0 12px" }}
           >
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search fresh produce, farms, or artisan goods..."
+              style={{
+                flex: 1,
+                padding: "9px 16px",
+                border: "none",
+                borderRadius: "10px 0 0 10px",
+                fontSize: 14,
+                outline: "none",
+                background: "rgba(255,255,255,0.12)",
+                color: "#fff",
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                padding: "9px 14px",
+                border: "none",
+                borderRadius: "0 10px 10px 0",
+                background: "#40916c",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: 14,
+              }}
+            >
+              &#128269;
+            </button>
+          </form>
+
+          {/* Right side */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {/* Cart icon */}
+            <div style={{ position: "relative", cursor: "pointer" }}>
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2}>
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+            </div>
+
             {isAuthed && user?.email && <span style={meta}>{user.email}</span>}
 
             {!isAuthed ? (
               <>
-                <NavLink to="/login" style={pill}>
+                <NavLink to="/login" style={() => authBtn()}>
                   Login
                 </NavLink>
-                <NavLink to="/signup" style={pill}>
+                <NavLink to="/signup" style={() => authBtn(true)}>
                   Sign up
                 </NavLink>
               </>
             ) : (
-              <NavLink to="/logout" style={pill}>
+              <NavLink to="/logout" style={() => authBtn()}>
                 Logout
               </NavLink>
             )}
@@ -160,7 +234,7 @@ function Layout() {
         </div>
       </div>
 
-      <div style={{ padding: 16, maxWidth: 980, margin: "0 auto" }}>
+      <div style={{ minHeight: "100vh", background: "#f8faf8" }}>
         <Outlet />
       </div>
     </>
