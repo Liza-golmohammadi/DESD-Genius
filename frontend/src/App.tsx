@@ -19,6 +19,7 @@ import ProducerDashboard from "./pages/ProducerDashboard";
 import Orders from "./pages/Orders";
 import Producers from "./pages/Producers";
 import ProducerDetail from "./pages/ProducerDetail";
+import AdminDashboard from "./pages/AdminDashboard";
 
 
 function Logout() {
@@ -343,6 +344,10 @@ function App() {
 
         <Route path="/producers/:id" element={<ProducerDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />  
+
+        {/* TEMP ROUTE TO TEST ADMIN */}
+          <Route path="/admin" element={<AdminDashboard />} />
+
 
       </Route>
     </Routes>

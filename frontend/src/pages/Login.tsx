@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { Link } from "react-router";
 import axios from "axios";
 import useAuth from "../context/useAuth";
 
@@ -8,72 +8,7 @@ type LoginFormData = {
   password: string;
 };
 
-const styles = {
-  page: {
-    minHeight: "calc(100vh - 120px)",
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    padding: "32px 16px",
-  } as React.CSSProperties,
-  card: {
-    width: "100%",
-    maxWidth: 520,
-    border: "1px solid #eaeaea",
-    borderRadius: 14,
-    background: "#fff",
-    padding: 22,
-    boxShadow: "0 8px 20px rgba(0,0,0,0.04)",
-  } as React.CSSProperties,
-  title: { margin: 0, fontSize: 24 } as React.CSSProperties,
-  subtitle: { margin: "8px 0 0", opacity: 0.75 } as React.CSSProperties,
-  form: { display: "grid", gap: 12, marginTop: 16 } as React.CSSProperties,
-  label: { fontSize: 13, opacity: 0.8, marginBottom: 6 } as React.CSSProperties,
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid #ddd",
-    outline: "none",
-  } as React.CSSProperties,
-  row: {
-    display: "flex",
-    gap: 12,
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-  } as React.CSSProperties,
-  smallLink: { fontSize: 13, fontWeight: 700 } as React.CSSProperties,
-  errorBox: {
-    background: "#ffecec",
-    border: "1px solid #ffc9c9",
-    padding: 12,
-    borderRadius: 12,
-    color: "#8a1f1f",
-  } as React.CSSProperties,
-  button: (disabled: boolean) =>
-    ({
-      padding: "12px 14px",
-      borderRadius: 12,
-      border: "none",
-      background: disabled ? "#777" : "#111",
-      color: "#fff",
-      fontWeight: 700,
-      cursor: disabled ? "not-allowed" : "pointer",
-    }) as React.CSSProperties,
-  ghostBtn: {
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid #ddd",
-    background: "#fff",
-    cursor: "pointer",
-    fontWeight: 600,
-  } as React.CSSProperties,
-};
-
 export default function Login() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const { loginUser } = useAuth();
 
   const [formData, setFormData] = useState<LoginFormData>({
@@ -98,7 +33,7 @@ export default function Login() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
 
@@ -113,11 +48,6 @@ export default function Login() {
         email: formData.email.trim(),
         password: formData.password,
       });
-
-      // If redirected here from a protected route, go back there
-      // direct it to producer dashboard
-      /* const from = (location.state as any)?.from?.pathname as string | undefined;
-      navigate(from || "/user", { replace: true }); */
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const data = err.response?.data;
@@ -131,6 +61,7 @@ export default function Login() {
                 .join(" | ")
             : null) ||
           `Login failed (${err.response?.status ?? "unknown"})`;
+
         setError(msg);
       } else {
         setError("Login failed. Please try again.");
@@ -140,17 +71,84 @@ export default function Login() {
     }
   };
 
-  return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Welcome back</h1>
-        <p style={styles.subtitle}>Log in to continue.</p>
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "0.95rem 1rem",
+    borderRadius: "10px",
+    border: "1px solid #d1d5db",
+    fontSize: "1rem",
+    outline: "none",
+    boxSizing: "border-box",
+    backgroundColor: "#ffffff",
+  };
 
-        <form onSubmit={handleSubmit} style={styles.form}>
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#f5f7f4",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "2rem 1rem",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "520px",
+          backgroundColor: "#ffffff",
+          borderRadius: "16px",
+          padding: "2rem",
+          boxShadow: "0 8px 24px rgba(0, 0, 0, 0.08)",
+          border: "1px solid #e5e7eb",
+        }}
+      >
+        <div style={{ marginBottom: "1.5rem" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "2rem",
+              color: "#1f4d3a",
+            }}
+          >
+            Welcome back
+          </h1>
+          <p
+            style={{
+              marginTop: "0.5rem",
+              marginBottom: 0,
+              color: "#4b5563",
+              lineHeight: "1.6",
+            }}
+          >
+            Log in to continue to your account.
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            display: "grid",
+            gap: "1rem",
+          }}
+        >
           <div>
-            <div style={styles.label}>Email</div>
+            <label
+              htmlFor="email"
+              style={{
+                display: "block",
+                marginBottom: "0.45rem",
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                color: "#374151",
+              }}
+            >
+              Email
+            </label>
             <input
-              style={styles.input}
+              id="email"
+              style={inputStyle}
               name="email"
               type="email"
               value={formData.email}
@@ -162,50 +160,123 @@ export default function Login() {
           </div>
 
           <div>
-            <div style={styles.row}>
-              <div style={styles.label}>Password</div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "0.45rem",
+                gap: "1rem",
+              }}
+            >
+              <label
+                htmlFor="password"
+                style={{
+                  fontSize: "0.95rem",
+                  fontWeight: 600,
+                  color: "#374151",
+                }}
+              >
+                Password
+              </label>
+
               <button
                 type="button"
-                style={styles.ghostBtn}
                 onClick={() => setShowPw((v) => !v)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#1f4d3a",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
               >
                 {showPw ? "Hide" : "Show"}
               </button>
             </div>
 
             <input
-              style={styles.input}
+              id="password"
+              style={inputStyle}
               name="password"
               type={showPw ? "text" : "password"}
               value={formData.password}
               onChange={handleChange}
-              placeholder="••••••••"
+              placeholder="Enter your password"
               autoComplete="current-password"
               required
             />
           </div>
 
-          {error && <div style={styles.errorBox}>{error}</div>}
+          {error && (
+            <div
+              style={{
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
+                color: "#991b1b",
+                padding: "0.9rem 1rem",
+                borderRadius: "10px",
+                fontSize: "0.95rem",
+                lineHeight: "1.5",
+              }}
+            >
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"
-            style={styles.button(!canSubmit)}
             disabled={!canSubmit}
+            style={{
+              marginTop: "0.5rem",
+              padding: "1rem",
+              borderRadius: "10px",
+              border: "none",
+              backgroundColor: canSubmit ? "#1f4d3a" : "#9ca3af",
+              color: "#ffffff",
+              fontSize: "1rem",
+              fontWeight: 700,
+              cursor: canSubmit ? "pointer" : "not-allowed",
+            }}
           >
-            {loading ? "Logging in…" : "Log in"}
+            {loading ? "Logging in..." : "Log in"}
           </button>
 
-          <div style={styles.row}>
-            <span style={{ opacity: 0.8 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "1rem",
+              flexWrap: "wrap",
+              marginTop: "0.5rem",
+            }}
+          >
+            <span style={{ color: "#4b5563" }}>
               No account?{" "}
-              <a href="/signup" style={styles.smallLink}>
+              <Link
+                to="/signup"
+                style={{
+                  color: "#1f4d3a",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                }}
+              >
                 Sign up
-              </a>
+              </Link>
             </span>
 
-            <a href="/" style={styles.smallLink}>
+            <Link
+              to="/"
+              style={{
+                color: "#1f4d3a",
+                fontWeight: 700,
+                textDecoration: "none",
+              }}
+            >
               Back to Home
-            </a>
+            </Link>
           </div>
         </form>
       </div>
