@@ -13,6 +13,14 @@ services:
       - DJANGO_SETTINGS_MODULE=backend.settings
       - JWT_ACCESS_MINUTES=15
       - JWT_REFRESH_DAYS=30
+      - DB_NAME=mydatabase
+      - DB_USER=mydatabaseuserggit 
+      - DB_PASSWORD=mypassword
+      - DB_HOST=db
+      - DB_PORT=5432
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
@@ -27,3 +35,24 @@ services:
       - VITE_API_URL=http://localhost:8000
     depends_on:
       - backend
+
+  db:
+    image: postgres:16-alpine
+    container_name: db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=mydatabase
+      - POSTGRES_USER=mydatabaseuser
+      - POSTGRES_PASSWORD=mypassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mydatabaseuser -d mydatabase"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
