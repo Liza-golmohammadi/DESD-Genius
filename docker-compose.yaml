@@ -10,11 +10,12 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - DJANGO_SETTINGS_MODULE=backend.settings
       - JWT_ACCESS_MINUTES=15
       - JWT_REFRESH_DAYS=30
       - DB_NAME=mydatabase
-      - DB_USER=mydatabaseuserggit 
+      - DB_USER=mydatabaseuser
       - DB_PASSWORD=mypassword
       - DB_HOST=db
       - DB_PORT=5432
