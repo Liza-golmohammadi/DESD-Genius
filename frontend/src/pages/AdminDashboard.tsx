@@ -1,39 +1,264 @@
+import { useEffect, useState } from "react";
+import api from "../api";
+import AdminUsers from "./AdminUsers";
+import AdminOrders from "./AdminOrders";
+
+type ReportsData = {
+  user_summary: {
+    total_users: number;
+    total_customers: number;
+    total_producers: number;
+    total_admins: number;
+  };
+  order_summary: {
+    total_orders: number;
+    pending_orders: number;
+    confirmed_orders: number;
+    ready_orders: number;
+    delivered_orders: number;
+    cancelled_orders: number;
+  };
+  financial_summary: {
+    total_revenue: string;
+    total_commission: string;
+    producer_payout_total: string;
+  };
+  recent_orders: {
+    order_number: string;
+    status: string;
+    total_amount: string;
+    created_at: string;
+  }[];
+};
+
+const TABS = ["Overview", "Users", "Orders"] as const;
+type Tab = (typeof TABS)[number];
+
 const AdminDashboard = () => {
-  const stats = [
-    { label: "Total Users", value: "24" },
-    { label: "Total Producers", value: "8" },
-    { label: "Total Orders", value: "56" },
-    { label: "Pending Reviews", value: "5" },
-  ];
+  const [tab, setTab] = useState<Tab>("Overview");
+  const [data, setData] = useState<ReportsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const sections = [
-    {
-      title: "User Management",
-      description:
-        "View and manage customer, producer, and admin accounts across the platform.",
-      action: "Manage Users",
-    },
-    {
-      title: "Producer Management",
-      description:
-        "Review producer profiles, monitor activity, and check submitted information.",
-      action: "View Producers",
-    },
-    {
-      title: "Order Overview",
-      description:
-        "Track order statuses, payouts, and overall marketplace activity in one place.",
-      action: "View Orders",
-    },
-  ];
+  useEffect(() => {
+    api
+      .get<ReportsData>("/api/admin/reports/")
+      .then((res) => setData(res.data))
+      .catch(() => setError("Failed to load dashboard data."))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const recentActivity = [
-    "New producer account registered",
-    "Order #1042 marked as completed",
-    "Admin profile updated system settings",
-    "Customer account requested support",
-  ];
+  /* ── shared styles ──────────────────────────── */
+  const card: React.CSSProperties = {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: "1.25rem",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    border: "1px solid #e5e7eb",
+  };
 
+  const statusColor: Record<string, { bg: string; fg: string }> = {
+    pending:   { bg: "#f3f4f6", fg: "#6b7280" },
+    confirmed: { bg: "#dbeafe", fg: "#1e40af" },
+    ready:     { bg: "#fef3c7", fg: "#92400e" },
+    delivered: { bg: "#d1fae5", fg: "#065f46" },
+    cancelled: { bg: "#fce4ec", fg: "#b71c1c" },
+  };
+
+  /* ── overview content ───────────────────────── */
+  function renderOverview() {
+    if (loading)
+      return <p style={{ opacity: 0.6, padding: 20 }}>Loading dashboard…</p>;
+    if (error || !data)
+      return <p style={{ color: "#b71c1c", padding: 20 }}>{error}</p>;
+
+    const statCards: { label: string; value: string | number }[] = [
+      { label: "Total Users", value: data.user_summary.total_users },
+      { label: "Total Producers", value: data.user_summary.total_producers },
+      { label: "Total Orders", value: data.order_summary.total_orders },
+      { label: "Total Revenue", value: `£${data.financial_summary.total_revenue}` },
+      { label: "Platform Commission", value: `£${data.financial_summary.total_commission}` },
+      { label: "Producer Payouts", value: `£${data.financial_summary.producer_payout_total}` },
+    ];
+
+    return (
+      <>
+        {/* Stat cards */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+            gap: "1rem",
+            marginBottom: "1.5rem",
+          }}
+        >
+          {statCards.map((s) => (
+            <div key={s.label} style={card}>
+              <p style={{ margin: 0, fontSize: "0.9rem", color: "#6b7280" }}>
+                {s.label}
+              </p>
+              <h2
+                style={{
+                  margin: "0.4rem 0 0",
+                  fontSize: "1.75rem",
+                  color: "#1f4d3a",
+                }}
+              >
+                {s.value}
+              </h2>
+            </div>
+          ))}
+        </div>
+
+        {/* Two-column: orders by status + recent orders */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "1.5rem",
+            alignItems: "start",
+          }}
+        >
+          {/* Orders by status */}
+          <div style={card}>
+            <h3
+              style={{
+                margin: "0 0 1rem",
+                fontSize: "1.15rem",
+                color: "#1f4d3a",
+              }}
+            >
+              Orders by Status
+            </h3>
+            <div style={{ display: "grid", gap: 8 }}>
+              {[
+                { key: "pending", label: "Pending", count: data.order_summary.pending_orders },
+                { key: "confirmed", label: "Confirmed", count: data.order_summary.confirmed_orders },
+                { key: "ready", label: "Ready", count: data.order_summary.ready_orders },
+                { key: "delivered", label: "Delivered", count: data.order_summary.delivered_orders },
+                { key: "cancelled", label: "Cancelled", count: data.order_summary.cancelled_orders },
+              ].map((s) => (
+                <div
+                  key={s.key}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderBottom: "1px solid #f0f0f0",
+                  }}
+                >
+                  <span
+                    style={{
+                      padding: "3px 10px",
+                      borderRadius: 6,
+                      fontSize: "0.82rem",
+                      fontWeight: 700,
+                      background: statusColor[s.key]?.bg,
+                      color: statusColor[s.key]?.fg,
+                    }}
+                  >
+                    {s.label}
+                  </span>
+                  <span style={{ fontWeight: 700, color: "#1f4d3a" }}>
+                    {s.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent orders */}
+          <div style={card}>
+            <h3
+              style={{
+                margin: "0 0 1rem",
+                fontSize: "1.15rem",
+                color: "#1f4d3a",
+              }}
+            >
+              Recent Orders
+            </h3>
+            {data.recent_orders.length === 0 ? (
+              <p style={{ opacity: 0.5 }}>No orders yet.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                {data.recent_orders.map((o) => (
+                  <div
+                    key={o.order_number}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderBottom: "1px solid #f0f0f0",
+                      fontSize: "0.88rem",
+                    }}
+                  >
+                    <span style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
+                      {o.order_number}
+                    </span>
+                    <span>£{o.total_amount}</span>
+                    <span
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: 6,
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        background: statusColor[o.status]?.bg || "#f5f5f5",
+                        color: statusColor[o.status]?.fg || "#333",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {o.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* User breakdown */}
+        <div style={{ ...card, marginTop: "1.5rem" }}>
+          <h3
+            style={{
+              margin: "0 0 1rem",
+              fontSize: "1.15rem",
+              color: "#1f4d3a",
+            }}
+          >
+            User Breakdown
+          </h3>
+          <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+            {[
+              { label: "Customers", count: data.user_summary.total_customers },
+              { label: "Producers", count: data.user_summary.total_producers },
+              { label: "Admins", count: data.user_summary.total_admins },
+            ].map((u) => (
+              <div key={u.label}>
+                <p style={{ margin: 0, fontSize: "0.85rem", color: "#6b7280" }}>
+                  {u.label}
+                </p>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: "1.5rem",
+                    fontWeight: 700,
+                    color: "#1f4d3a",
+                  }}
+                >
+                  {u.count}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  /* ── main render ────────────────────────────── */
   return (
     <div
       style={{
@@ -42,238 +267,69 @@ const AdminDashboard = () => {
         padding: "2rem",
       }}
     >
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-        }}
-      >
-        <div
-          style={{
-            marginBottom: "2rem",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "1rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <h1
-              style={{
-                fontSize: "2.4rem",
-                margin: 0,
-                marginBottom: "0.5rem",
-                color: "#1f4d3a",
-              }}
-            >
-              Admin Dashboard
-            </h1>
-            <p
-              style={{
-                margin: 0,
-                color: "#4b5563",
-                fontSize: "1rem",
-                maxWidth: "700px",
-                lineHeight: "1.6",
-              }}
-            >
-              Welcome, admin. Use this dashboard to monitor platform activity,
-              review marketplace data, and manage key areas of the system.
-            </p>
-          </div>
-
-          <div
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        {/* Header */}
+        <div style={{ marginBottom: "1.5rem" }}>
+          <h1
             style={{
-              backgroundColor: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: "12px",
-              padding: "1rem 1.25rem",
-              minWidth: "220px",
-              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+              fontSize: "2.2rem",
+              margin: 0,
+              marginBottom: "0.4rem",
+              color: "#1f4d3a",
             }}
           >
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.9rem",
-                color: "#6b7280",
-              }}
-            >
-              System Status
-            </p>
-            <h3
-              style={{
-                margin: "0.45rem 0 0 0",
-                color: "#1f4d3a",
-                fontSize: "1.2rem",
-              }}
-            >
-              Operational
-            </h3>
-          </div>
+            Admin Dashboard
+          </h1>
+          <p
+            style={{
+              margin: 0,
+              color: "#4b5563",
+              fontSize: "0.95rem",
+              maxWidth: 700,
+              lineHeight: 1.6,
+            }}
+          >
+            Monitor platform activity, manage users, and review orders.
+          </p>
         </div>
 
+        {/* Tab bar */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "1rem",
-            marginBottom: "2rem",
+            display: "flex",
+            gap: 4,
+            marginBottom: "1.5rem",
+            borderBottom: "2px solid #e5e7eb",
+            paddingBottom: 0,
           }}
         >
-          {stats.map((stat) => (
-            <div
-              key={stat.label}
+          {TABS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
               style={{
-                backgroundColor: "#ffffff",
-                borderRadius: "12px",
-                padding: "1.25rem",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
-                border: "1px solid #e5e7eb",
+                padding: "10px 20px",
+                border: "none",
+                borderBottom: tab === t ? "3px solid #1f4d3a" : "3px solid transparent",
+                background: "transparent",
+                fontSize: "0.95rem",
+                fontWeight: tab === t ? 700 : 500,
+                color: tab === t ? "#1f4d3a" : "#6b7280",
+                cursor: "pointer",
+                marginBottom: -2,
+                transition: "color 0.15s",
               }}
             >
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "0.95rem",
-                  color: "#6b7280",
-                }}
-              >
-                {stat.label}
-              </p>
-              <h2
-                style={{
-                  margin: "0.5rem 0 0 0",
-                  fontSize: "2rem",
-                  color: "#1f4d3a",
-                }}
-              >
-                {stat.value}
-              </h2>
-            </div>
+              {t}
+            </button>
           ))}
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr",
-            gap: "1.5rem",
-            alignItems: "start",
-          }}
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-              gap: "1.5rem",
-            }}
-          >
-            {sections.map((section) => (
-              <div
-                key={section.title}
-                style={{
-                  backgroundColor: "#ffffff",
-                  borderRadius: "12px",
-                  padding: "1.5rem",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
-                  border: "1px solid #e5e7eb",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  minHeight: "220px",
-                }}
-              >
-                <div>
-                  <h2
-                    style={{
-                      fontSize: "1.3rem",
-                      margin: 0,
-                      marginBottom: "0.75rem",
-                      color: "#1f4d3a",
-                    }}
-                  >
-                    {section.title}
-                  </h2>
-                  <p
-                    style={{
-                      color: "#4b5563",
-                      lineHeight: "1.6",
-                      margin: 0,
-                    }}
-                  >
-                    {section.description}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  style={{
-                    marginTop: "1.5rem",
-                    backgroundColor: "#1f4d3a",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: "8px",
-                    padding: "0.8rem 1rem",
-                    fontSize: "0.95rem",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {section.action}
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "#ffffff",
-              borderRadius: "12px",
-              padding: "1.5rem",
-              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
-              border: "1px solid #e5e7eb",
-            }}
-          >
-            <h2
-              style={{
-                margin: 0,
-                marginBottom: "1rem",
-                fontSize: "1.25rem",
-                color: "#1f4d3a",
-              }}
-            >
-              Recent Activity
-            </h2>
-
-            <div style={{ display: "grid", gap: "0.9rem" }}>
-              {recentActivity.map((item, index) => (
-                <div
-                  key={index}
-                  style={{
-                    paddingBottom: "0.9rem",
-                    borderBottom:
-                      index !== recentActivity.length - 1
-                        ? "1px solid #e5e7eb"
-                        : "none",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      color: "#374151",
-                      lineHeight: "1.5",
-                      fontSize: "0.95rem",
-                    }}
-                  >
-                    {item}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        {/* Tab content */}
+        {tab === "Overview" && renderOverview()}
+        {tab === "Users" && <AdminUsers />}
+        {tab === "Orders" && <AdminOrders />}
       </div>
     </div>
   );

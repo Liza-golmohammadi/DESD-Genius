@@ -49,6 +49,8 @@ class Product(models.Model):
     allergens = models.TextField(blank=True)
     organic_certified = models.BooleanField(default=False)
     harvest_date = models.DateField()
+    farm_origin = models.CharField(max_length=255, blank=True, default="", help_text="e.g. 'Bristol, UK'")
+    food_miles = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True, help_text="Estimated food miles for this product")
 
     producer = models.ForeignKey(
         User,

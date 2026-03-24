@@ -185,7 +185,7 @@ function ProductModal({
       if (!body.image_url) delete body.image_url;
       if (isEdit) {
         // Only inventory fields editable via PATCH /inventory/
-        await api.patch(`/products/${initial!.id}/inventory/`, {
+        await api.patch(`/api/products/${initial!.id}/inventory/`, {
           stock_quantity: body.stock_quantity,
           low_stock_threshold: body.low_stock_threshold,
           is_available: body.is_available,
@@ -193,7 +193,7 @@ function ProductModal({
           available_to: body.available_to,
         });
       } else {
-        await api.post("/products/", body);
+        await api.post("/api/products/", body);
       }
       onSaved();
     } catch (e) {
@@ -350,7 +350,7 @@ function ProductModal({
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 export default function ProducerDashboard() {
-  const [tab, setTab] = useState<"products" | "orders" | "profile">("products");
+  const [tab, setTab] = useState<"products" | "orders" | "payments" | "profile">("products");
 
   // Profile
   const [profile, setProfile] = useState<ProducerMe | null>(null);
@@ -394,8 +394,7 @@ export default function ProducerDashboard() {
   async function loadProducts() {
     setProductsLoading(true);
     try {
-      const res = await api.get<Product[]>("/products/");
-      setProducts(res.data);
+    const res = await api.get<Product[]>("/api/products/");      setProducts(res.data);
     } catch {
       // silently fail — shown as empty table
     } finally {
@@ -405,7 +404,7 @@ export default function ProducerDashboard() {
 
   async function loadCategories() {
     try {
-      const res = await api.get<Category[]>("/products/categories/");
+      const res = await api.get<Category[]>("/api/products/categories/");
       setCategories(res.data);
     } catch {
       // ignore
@@ -415,7 +414,7 @@ export default function ProducerDashboard() {
   async function loadOrders() {
     setOrdersLoading(true);
     try {
-      const res = await api.get<ProducerOrder[]>("/orders/producer/");
+      const res = await api.get<ProducerOrder[]>("/api/orders/producer/");
       setOrders(res.data);
     } catch {
       // silently fail
@@ -450,7 +449,7 @@ export default function ProducerDashboard() {
   async function updateOrderStatus(orderId: number, newStatus: string) {
     setStatusUpdating(orderId);
     try {
-      await api.patch(`/orders/producer/${orderId}/status/`, { status: newStatus, note: "" });
+      await api.patch(`/api/orders/producer/${orderId}/status/`, { status: newStatus, note: "" });
       await loadOrders();
     } catch {
       // ignore for now
@@ -533,7 +532,7 @@ export default function ProducerDashboard() {
       {/* ── Tab bar ────────────────────────────────────────────────────────── */}
       <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb" }}>
         <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px", display: "flex", gap: 0 }}>
-          {(["products", "orders", "profile"] as const).map((t) => (
+          {(["products", "orders", "payments", "profile"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -549,7 +548,7 @@ export default function ProducerDashboard() {
                 textTransform: "capitalize",
               }}
             >
-              {t === "products" ? `Products (${products.length})` : t === "orders" ? `Orders (${orders.length})` : "Store Profile"}
+              {t === "products" ? `Products (${products.length})` : t === "orders" ? `Orders (${orders.length})` : t === "payments" ? "Payments" : "Store Profile"}
             </button>
           ))}
         </div>
@@ -666,101 +665,136 @@ export default function ProducerDashboard() {
         )}
 
         {/* ── ORDERS TAB ────────────────────────────────────────────────── */}
-        {tab === "orders" && (
-          <div>
-            <h2 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 800 }}>Incoming Orders</h2>
-
-            {ordersLoading ? (
-              <div style={{ textAlign: "center", padding: 40, color: "#aaa" }}>Loading orders…</div>
-            ) : orders.length === 0 ? (
-              <div style={{ background: "#fff", borderRadius: 14, padding: 48, textAlign: "center", color: "#aaa", boxShadow: "0 1px 8px rgba(0,0,0,0.05)" }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#555" }}>No orders yet</div>
-                <div style={{ fontSize: 14, marginTop: 6 }}>Orders from customers will appear here.</div>
+         {tab === "payments" && (
+          <div style={{ maxWidth: 700 }}>
+            <h2 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 800 }}>Payments &amp; Settlement</h2>
+ 
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 14,
+                padding: 24,
+                boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
+              }}
+            >
+              <p style={{ margin: "0 0 20px", color: "#6b7280", fontSize: 14, lineHeight: 1.6 }}>
+                Summary of your earnings across all fulfilled orders. The platform retains a 5% commission
+                and the remaining 95% is your payout.
+              </p>
+ 
+              {/* Summary cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
+                <div
+                  style={{
+                    background: "#f0fdf4",
+                    border: "1px solid #bbf7d0",
+                    borderRadius: 10,
+                    padding: "16px 18px",
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Total Earnings
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#1f4d3a", marginTop: 4 }}>
+                    £{orders.reduce((sum, o) => sum + parseFloat(o.subtotal || "0"), 0).toFixed(2)}
+                  </div>
+                </div>
+ 
+                <div
+                  style={{
+                    background: "#fef3c7",
+                    border: "1px solid #fde68a",
+                    borderRadius: 10,
+                    padding: "16px 18px",
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Commission (5%)
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#92400e", marginTop: 4 }}>
+                    £{(orders.reduce((sum, o) => sum + parseFloat(o.subtotal || "0"), 0) - orders.reduce((sum, o) => sum + parseFloat(o.producer_payout || "0"), 0)).toFixed(2)}
+                  </div>
+                </div>
+ 
+                <div
+                  style={{
+                    background: "#dbeafe",
+                    border: "1px solid #93c5fd",
+                    borderRadius: 10,
+                    padding: "16px 18px",
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Net Payout
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#1e40af", marginTop: 4 }}>
+                    £{orders.reduce((sum, o) => sum + parseFloat(o.producer_payout || "0"), 0).toFixed(2)}
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {orders.map((order) => {
-                  const nextOptions = NEXT_STATUSES[order.status] ?? [];
-                  return (
-                    <div
-                      key={order.id}
-                      style={{
-                        background: "#fff",
-                        borderRadius: 14,
-                        padding: "20px 22px",
-                        boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
-                        borderLeft: `4px solid ${STATUS_COLORS[order.status]?.color ?? "#ccc"}`,
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <span style={{ fontWeight: 800, fontSize: 16 }}>Order #{order.id}</span>
-                            <Badge status={order.status} />
-                          </div>
-                          <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
-                            Delivery: <strong>{order.delivery_date || "—"}</strong>
-                          </div>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontWeight: 800, fontSize: 18, color: "#1b4332" }}>
-                            £{parseFloat(order.producer_payout || "0").toFixed(2)}
-                          </div>
-                          <div style={{ fontSize: 12, color: "#aaa" }}>your payout</div>
-                        </div>
-                      </div>
-
-                      {/* Items */}
-                      <div style={{ marginTop: 14, borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
-                        {order.items.map((item) => (
-                          <div key={item.product_id} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "3px 0" }}>
-                            <span>{item.product_name} × {item.quantity}</span>
-                            <span style={{ fontWeight: 600 }}>£{Number(item.line_total).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Status update */}
-                      {nextOptions.length > 0 && (
-                        <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          {nextOptions.map((s) => (
-                            <button
-                              key={s}
-                              disabled={statusUpdating === order.id}
-                              onClick={() => updateOrderStatus(order.id, s)}
-                              style={{
-                                padding: "7px 16px",
-                                borderRadius: 8,
-                                border: "none",
-                                background: s === "cancelled" ? "#fee2e2" : "#1b4332",
-                                color: s === "cancelled" ? "#991b1b" : "#fff",
-                                fontWeight: 700,
-                                fontSize: 13,
-                                cursor: statusUpdating === order.id ? "not-allowed" : "pointer",
-                                textTransform: "capitalize",
-                              }}
-                            >
-                              {statusUpdating === order.id ? "…" : `Mark ${s}`}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {order.notes && (
-                        <div style={{ marginTop: 10, fontSize: 13, color: "#6b7280", fontStyle: "italic" }}>
-                          Note: {order.notes}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+ 
+              {/* Per-order breakdown */}
+              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "#1f4d3a" }}>
+                Order Breakdown
+              </h3>
+ 
+              {orders.length === 0 ? (
+                <p style={{ color: "#aaa", fontStyle: "italic" }}>
+                  No orders yet. Payment data will appear here once customers place orders.
+                </p>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #e5e7eb", textAlign: "left" }}>
+                        <th style={{ padding: "10px 12px" }}>Order</th>
+                        <th style={{ padding: "10px 12px" }}>Status</th>
+                        <th style={{ padding: "10px 12px" }}>Subtotal</th>
+                        <th style={{ padding: "10px 12px" }}>Commission</th>
+                        <th style={{ padding: "10px 12px" }}>Your Payout</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map((o) => {
+                        const sub = parseFloat(o.subtotal || "0");
+                        const payout = parseFloat(o.producer_payout || "0");
+                        const commission = sub - payout;
+                        const sc = STATUS_COLORS[o.status] ?? { bg: "#f3f4f6", color: "#374151" };
+                        return (
+                          <tr key={o.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                            <td style={{ padding: "10px 12px", fontWeight: 600 }}>#{o.id}</td>
+                            <td style={{ padding: "10px 12px" }}>
+                              <span
+                                style={{
+                                  padding: "3px 10px",
+                                  borderRadius: 6,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  background: sc.bg,
+                                  color: sc.color,
+                                  textTransform: "capitalize",
+                                }}
+                              >
+                                {o.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: "10px 12px" }}>£{sub.toFixed(2)}</td>
+                            <td style={{ padding: "10px 12px", color: "#92400e" }}>-£{commission.toFixed(2)}</td>
+                            <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1f4d3a" }}>£{payout.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
+ 
+      </div>
 
-        {/* ── PROFILE TAB ───────────────────────────────────────────────── */}
+      {/* ── PROFILE TAB ───────────────────────────────────────────────── */}
         {tab === "profile" && (
           <div style={{ maxWidth: 600 }}>
             <h2 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 800 }}>Store Profile</h2>
@@ -845,7 +879,6 @@ export default function ProducerDashboard() {
             </div>
           </div>
         )}
-      </div>
 
       {/* ── Add/Edit Product Modal ─────────────────────────────────────────── */}
       {showModal && (

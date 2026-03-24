@@ -16,6 +16,10 @@ class UserSerializer(serializers.ModelSerializer):
             "password",
             "role",
             "is_active",
+            "address",
+            "postcode",
+            "phone",
+            "delivery_address",
         ]
         read_only_fields = ["id", "is_active"]
         extra_kwargs = {"password": {"write_only": True}}
@@ -61,13 +65,14 @@ class ProducerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Producer
         fields = [
-            "id",
+             "id",
             "email",
             "first_name",
             "last_name",
             "store_name",
             "description",
             "contact_info",
+            "farm_story",
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]

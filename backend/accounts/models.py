@@ -35,6 +35,11 @@ class User(AbstractUser):
 		choices=ROLE_CHOICES,
 		default='customer'
 	)
+	phone = models.CharField(max_length=20, blank=True, default="")
+	address = models.TextField(blank=True, default="")
+	postcode = models.CharField(max_length=20, blank=True, default="")
+	delivery_address = models.TextField(blank=True, default="")
+	terms_accepted = models.BooleanField(default=False)
 	minimum_order_value = models.DecimalField(
 		max_digits=10,
 		decimal_places=2,
@@ -57,6 +62,7 @@ class Producer(models.Model):
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     contact_info = models.TextField(blank=True, default="")
+    farm_story = models.TextField(blank=True, default="", help_text="The farm's story, background, and mission")
 
     def __str__(self):
         return self.store_name

@@ -30,4 +30,5 @@ class CartSummarySerializer(serializers.Serializer):
     cart_id = serializers.IntegerField(read_only=True)
     item_count = serializers.IntegerField(read_only=True)
     grand_total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    food_miles_total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     producers = ProducerGroupSerializer(many=True, read_only=True)
