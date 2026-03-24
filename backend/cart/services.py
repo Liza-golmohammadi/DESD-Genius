@@ -83,6 +83,9 @@ class CartService:
         
         producers_dict = {}
         grand_total = Decimal('0.00')
+        food_miles_total = Decimal('0.00')
+        item_count = 0
+
         item_count = 0
 
         for item in items:
@@ -110,6 +113,10 @@ class CartService:
             grand_total += line_total
             item_count += item.quantity
 
+            # Accumulate food miles
+            if item.product.food_miles:
+                food_miles_total += item.product.food_miles * item.quantity
+
         # Create sorted list of producers by producer_id
         producers_list = [producers_dict[pid] for pid in sorted(producers_dict.keys())]
 
@@ -117,5 +124,6 @@ class CartService:
             'cart_id': cart.id,
             'item_count': item_count,
             'grand_total': grand_total,
+            'food_miles_total': food_miles_total,
             'producers': producers_list
         }

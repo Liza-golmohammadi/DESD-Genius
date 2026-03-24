@@ -16,6 +16,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             "id","sku","name","price","unit","image_url",
             "stock_quantity","is_available","organic_certified",
             "available_from","available_to","category","producer_name",
+            "farm_origin","food_miles",
         ]
 
     def get_producer_name(self, obj):
@@ -35,6 +36,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "available_from","available_to","is_in_season","is_low_stock",
             "allergens","organic_certified","harvest_date",
             "category","producer_name","created_at","updated_at",
+            "farm_origin","food_miles",
         ]
 
     def get_producer_name(self, obj):
@@ -54,6 +56,7 @@ class ProductCreateSerializer(serializers.ModelSerializer):
             "stock_quantity","low_stock_threshold","is_available",
             "available_from","available_to","allergens","organic_certified",
             "harvest_date","category",
+            "farm_origin","food_miles",
         ]
 
     def validate(self, attrs):

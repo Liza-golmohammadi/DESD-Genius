@@ -145,7 +145,7 @@ function ProductModal({ categories, initial, onClose, onSaved }: { categories: C
       };
       if (!body.image_url) delete body.image_url;
       if (isEdit) {
-        await api.patch(`/products/${initial!.id}/inventory/`, {
+        await api.patch(`/api/products/${initial!.id}/inventory/`, {
           stock_quantity: body.stock_quantity,
           low_stock_threshold: body.low_stock_threshold,
           is_available: body.is_available,
@@ -153,7 +153,7 @@ function ProductModal({ categories, initial, onClose, onSaved }: { categories: C
           available_to: body.available_to,
         });
       } else {
-        await api.post("/products/", body);
+        await api.post("/api/products/", body);
       }
       onSaved();
     } catch (e) {
@@ -263,15 +263,15 @@ function ProductModal({ categories, initial, onClose, onSaved }: { categories: C
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function ProducerDashboard() {
   const { setUser } = useAuth();
-  const [tab, setTab] = useState<"products" | "orders" | "profile">("products");
+  const [tab, setTab] = useState<"products" | "orders" | "payments" | "profile">("products");
 
   // Profile — aligned with UserUpdateSerializer
   const [profile, setProfile] = useState<ProducerMe | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [storeName, setStoreName] = useState("");
-  const [storeDescription, setStoreDescription] = useState("");  
-  const [storeContact, setStoreContact] = useState("");           
+  const [storeDescription, setStoreDescription] = useState("");
+  const [storeContact, setStoreContact] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
   const [profileErr, setProfileErr] = useState<string | null>(null);
@@ -292,11 +292,9 @@ export default function ProducerDashboard() {
   async function loadProfile() {
     setProfileLoading(true);
     try {
-
       const res = await api.get<ProducerMe>("/accounts/auth/user/me/");
       setProfile(res.data);
       setUser(res.data as any);
-
       setStoreName(res.data.producer_profile?.store_name ?? "");
       setStoreDescription(res.data.producer_profile?.store_description ?? "");
       setStoreContact(res.data.producer_profile?.store_contact ?? "");
@@ -310,16 +308,18 @@ export default function ProducerDashboard() {
   async function loadProducts() {
     setProductsLoading(true);
     try {
-      const res = await api.get<Product[]>("/products/");
+      const res = await api.get<Product[]>("/api/products/");
       setProducts(res.data);
-    } catch { /* silently fail */ } finally {
+    } catch {
+      // silently fail — shown as empty table
+    } finally {
       setProductsLoading(false);
     }
   }
 
   async function loadCategories() {
     try {
-      const res = await api.get<Category[]>("/products/categories/");
+      const res = await api.get<Category[]>("/api/products/categories/");
       setCategories(res.data);
     } catch { /* ignore */ }
   }
@@ -327,7 +327,7 @@ export default function ProducerDashboard() {
   async function loadOrders() {
     setOrdersLoading(true);
     try {
-      const res = await api.get<ProducerOrder[]>("/orders/producer/");
+      const res = await api.get<ProducerOrder[]>("/api/orders/producer/");
       setOrders(res.data);
     } catch { /* silently fail */ } finally {
       setOrdersLoading(false);
@@ -346,12 +346,11 @@ export default function ProducerDashboard() {
     setProfileMsg(null);
     setProfileErr(null);
     try {
-      
       await api.patch("/accounts/auth/user/me/", {
         producer_profile: {
           store_name: storeName,
-          store_description: storeDescription,   
-          store_contact: storeContact,           
+          store_description: storeDescription,
+          store_contact: storeContact,
         },
       });
       await loadProfile();
@@ -367,7 +366,7 @@ export default function ProducerDashboard() {
   async function updateOrderStatus(orderId: number, newStatus: string) {
     setStatusUpdating(orderId);
     try {
-      await api.patch(`/orders/producer/${orderId}/status/`, { status: newStatus, note: "" });
+      await api.patch(`/api/orders/producer/${orderId}/status/`, { status: newStatus, note: "" });
       await loadOrders();
     } catch { /* ignore */ } finally {
       setStatusUpdating(null);
@@ -399,7 +398,6 @@ export default function ProducerDashboard() {
             <div>
               <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, marginBottom: 2 }}>Producer Dashboard</div>
               <h1 style={{ color: "#fff", margin: 0, fontSize: 24, fontWeight: 800 }}>
-                
                 {profile?.producer_profile?.store_name || `${profile?.first_name} ${profile?.last_name}`.trim() || "Your Store"}
               </h1>
               <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 2 }}>
@@ -422,9 +420,23 @@ export default function ProducerDashboard() {
       {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
       <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb" }}>
         <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px", display: "flex", gap: 0 }}>
-          {(["products", "orders", "profile"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: "14px 20px", border: "none", borderBottom: tab === t ? "2px solid #1b4332" : "2px solid transparent", background: "none", fontWeight: tab === t ? 700 : 500, color: tab === t ? "#1b4332" : "#6b7280", cursor: "pointer", fontSize: 14, textTransform: "capitalize" }}>
-              {t === "products" ? `Products (${products.length})` : t === "orders" ? `Orders (${orders.length})` : "Store Profile"}
+          {(["products", "orders", "payments", "profile"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                padding: "14px 20px",
+                border: "none",
+                borderBottom: tab === t ? "2px solid #1b4332" : "2px solid transparent",
+                background: "none",
+                fontWeight: tab === t ? 700 : 500,
+                color: tab === t ? "#1b4332" : "#6b7280",
+                cursor: "pointer",
+                fontSize: 14,
+                textTransform: "capitalize",
+              }}
+            >
+              {t === "products" ? `Products (${products.length})` : t === "orders" ? `Orders (${orders.length})` : t === "payments" ? "Payments" : "Store Profile"}
             </button>
           ))}
         </div>
@@ -565,6 +577,134 @@ export default function ProducerDashboard() {
           </div>
         )}
 
+        {/* ── PAYMENTS TAB ─────────────────────────────────────────────────── */}
+        {tab === "payments" && (
+          <div style={{ maxWidth: 700 }}>
+            <h2 style={{ margin: "0 0 20px", fontSize: 20, fontWeight: 800 }}>Payments &amp; Settlement</h2>
+
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 14,
+                padding: 24,
+                boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
+              }}
+            >
+              <p style={{ margin: "0 0 20px", color: "#6b7280", fontSize: 14, lineHeight: 1.6 }}>
+                Summary of your earnings across all fulfilled orders. The platform retains a 5% commission
+                and the remaining 95% is your payout.
+              </p>
+
+              {/* Summary cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
+                <div
+                  style={{
+                    background: "#f0fdf4",
+                    border: "1px solid #bbf7d0",
+                    borderRadius: 10,
+                    padding: "16px 18px",
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Total Earnings
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#1f4d3a", marginTop: 4 }}>
+                    £{orders.reduce((sum, o) => sum + parseFloat(o.subtotal || "0"), 0).toFixed(2)}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: "#fef3c7",
+                    border: "1px solid #fde68a",
+                    borderRadius: 10,
+                    padding: "16px 18px",
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Commission (5%)
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#92400e", marginTop: 4 }}>
+                    £{(orders.reduce((sum, o) => sum + parseFloat(o.subtotal || "0"), 0) - orders.reduce((sum, o) => sum + parseFloat(o.producer_payout || "0"), 0)).toFixed(2)}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: "#dbeafe",
+                    border: "1px solid #93c5fd",
+                    borderRadius: 10,
+                    padding: "16px 18px",
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Net Payout
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#1e40af", marginTop: 4 }}>
+                    £{orders.reduce((sum, o) => sum + parseFloat(o.producer_payout || "0"), 0).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Per-order breakdown */}
+              <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "#1f4d3a" }}>
+                Order Breakdown
+              </h3>
+
+              {orders.length === 0 ? (
+                <p style={{ color: "#aaa", fontStyle: "italic" }}>
+                  No orders yet. Payment data will appear here once customers place orders.
+                </p>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #e5e7eb", textAlign: "left" }}>
+                        <th style={{ padding: "10px 12px" }}>Order</th>
+                        <th style={{ padding: "10px 12px" }}>Status</th>
+                        <th style={{ padding: "10px 12px" }}>Subtotal</th>
+                        <th style={{ padding: "10px 12px" }}>Commission</th>
+                        <th style={{ padding: "10px 12px" }}>Your Payout</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map((o) => {
+                        const sub = parseFloat(o.subtotal || "0");
+                        const payout = parseFloat(o.producer_payout || "0");
+                        const commission = sub - payout;
+                        const sc = STATUS_COLORS[o.status] ?? { bg: "#f3f4f6", color: "#374151" };
+                        return (
+                          <tr key={o.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                            <td style={{ padding: "10px 12px", fontWeight: 600 }}>#{o.id}</td>
+                            <td style={{ padding: "10px 12px" }}>
+                              <span
+                                style={{
+                                  padding: "3px 10px",
+                                  borderRadius: 6,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  background: sc.bg,
+                                  color: sc.color,
+                                  textTransform: "capitalize",
+                                }}
+                              >
+                                {o.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: "10px 12px" }}>£{sub.toFixed(2)}</td>
+                            <td style={{ padding: "10px 12px", color: "#92400e" }}>-£{commission.toFixed(2)}</td>
+                            <td style={{ padding: "10px 12px", fontWeight: 700, color: "#1f4d3a" }}>£{payout.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── PROFILE TAB ──────────────────────────────────────────────────── */}
         {tab === "profile" && (
           <div style={{ maxWidth: 600 }}>
@@ -586,7 +726,6 @@ export default function ProducerDashboard() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>Store Since</label>
-                {/* ✅ read from producer_profile.store_created_at */}
                 <div style={{ fontSize: 15 }}>
                   {profile?.producer_profile?.store_created_at
                     ? new Date(profile.producer_profile.store_created_at).toLocaleDateString()
@@ -615,7 +754,6 @@ export default function ProducerDashboard() {
                   )}
                 </div>
 
-
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>Store Contact</label>
                   {editMode ? (
@@ -639,7 +777,6 @@ export default function ProducerDashboard() {
                     <button
                       onClick={() => {
                         setEditMode(false);
-                        // ✅ reset to current profile values
                         setStoreName(profile?.producer_profile?.store_name ?? "");
                         setStoreDescription(profile?.producer_profile?.store_description ?? "");
                         setStoreContact(profile?.producer_profile?.store_contact ?? "");

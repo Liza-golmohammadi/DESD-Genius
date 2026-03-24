@@ -20,6 +20,7 @@ import Orders from "./pages/Orders";
 import Producers from "./pages/Producers";
 import ProducerDetail from "./pages/ProducerDetail";
 import AdminDashboard from "./pages/AdminDashboard";
+import Sustainability from "./pages/Sustainability";
 
 
 function Logout() {
@@ -123,7 +124,6 @@ function Layout() {
     <>
       <div style={headerWrap}>
         <div style={headerInner}>
-          {/* Brand + nav */}
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             <NavLink to="/" style={brand}>
               <svg width={22} height={22} viewBox="0 0 24 24" fill="#40916c">
@@ -162,13 +162,18 @@ function Layout() {
                 </NavLink>
               )}
 
-              <NavLink to="/user" style={pill}>
+              {isAuthed && user?.role === "admin" && (
+                <NavLink to="/admin" style={pill}>
+                  Admin Panel
+                </NavLink>
+              )}
+
+              <NavLink to="/sustainability" style={pill}>
                 Sustainability
               </NavLink>
             </nav>
           </div>
 
-          {/* Search bar */}
           <form
             onSubmit={handleSearch}
             style={{ flex: 1, maxWidth: 420, display: "flex", margin: "0 12px" }}
@@ -204,7 +209,6 @@ function Layout() {
             </button>
           </form>
 
-          {/* Right side */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ position: "relative", cursor: "pointer" }}>
               <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2}>
@@ -253,7 +257,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Protect routes that require login
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthed = !!localStorage.getItem("access");
   const location = useLocation();
@@ -285,6 +288,8 @@ function App() {
 
         <Route path="/user" element={<RequireAuth><User /></RequireAuth>} />
 
+        <Route path="/sustainability" element={<Sustainability />} />
+
         {/* Producer only routes */}
         <Route element={<ProtectedRoute allowedRoles={["producer"]} />}>
           <Route path="/producer/dashboard" element={<ProducerDashboard />} />
@@ -295,9 +300,12 @@ function App() {
           <Route path="/orders" element={<Orders />} />
         </Route>
 
-        {/* TEMP ROUTE TO TEST ADMIN */}
-        <Route path="/admin" element={<AdminDashboard />} />
+        {/* Admin only routes */}
+        <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+        </Route>
 
+        {/* Catch-all — MUST be last */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

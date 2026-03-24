@@ -10,7 +10,6 @@ class ProducerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProducerProfile
         fields = ['store_name', 'store_description', 'store_contact', 'store_address', 'store_created_at']
-        # read_only_fields = ['store_name', 'store_description', 'store_contact', 'store_address', 'store_created_at']
 
 class UserSerializer(serializers.ModelSerializer):
     producer_profile = ProducerProfileSerializer(read_only=True)
@@ -21,8 +20,14 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "first_name",
             "last_name",
+            "password",
+            "role",
+            "is_active",
             "phone_number",
+            "phone",
             "address",
+            "postcode",
+            "delivery_address",
             "customer_role",
             "is_producer",
             "accepted_terms_at",
@@ -45,7 +50,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         producer_data = validated_data.pop('producer_profile', None)
-        
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -134,10 +139,10 @@ class ProducerRegisterSerializer(serializers.ModelSerializer):
         user.producer_profile.save()
 
         return user
-    
+
     def to_representation(self, instance):
         return UserSerializer(instance).data
-    
+
 class ProducerListSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     first_name = serializers.CharField(source='user.first_name', read_only=True)
@@ -147,9 +152,10 @@ class ProducerListSerializer(serializers.ModelSerializer):
         model = ProducerProfile
         fields = [
             'id', 'email', 'first_name', 'last_name',
-            'store_name', 'store_description', 'store_contact', 'store_address', 'store_created_at'
+            'store_name', 'store_description', 'store_contact', 'store_address', 'store_created_at',
+            'description', 'contact_info', 'farm_story', 'created_at',
         ]
-    
+
 class ProducerDetailSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     first_name = serializers.CharField(source='user.first_name', read_only=True)

@@ -27,10 +27,33 @@ class User(AbstractUser):
 		INDIVIDUAL = 'individual', 'Individual'
 		COMMUNITY = 'community_group', 'Community Group'
 		RESTAURANT = 'restaurant', 'Restaurant'
-          
+
 	email = models.EmailField(unique=True)
+	is_active = models.BooleanField(default=False)
+
+	ROLE_CHOICES = (
+		('customer', 'Customer'),
+		('producer', 'Producer'),
+		('admin', 'Admin'),
+	)
+	role = models.CharField(
+		max_length=10,
+		choices=ROLE_CHOICES,
+		default='customer'
+	)
+	phone = models.CharField(max_length=20, blank=True, default="")
 	phone_number = models.CharField(max_length=20, blank=True, default="")
-	address = models.CharField(max_length=100, blank=True, default="")
+	address = models.TextField(blank=True, default="")
+	postcode = models.CharField(max_length=20, blank=True, default="")
+	delivery_address = models.TextField(blank=True, default="")
+	terms_accepted = models.BooleanField(default=False)
+	minimum_order_value = models.DecimalField(
+		max_digits=10,
+		decimal_places=2,
+		default=Decimal('0.00'),
+		help_text="Minimum order subtotal required for this producer (0 = no minimum)."
+	)
+
 	USERNAME_FIELD = 'email'
 	REQUIRED_FIELDS = ['first_name', 'last_name']
 
@@ -43,7 +66,7 @@ class User(AbstractUser):
 	blank=True,
 	default=None
 	)
-     
+
 	accepted_terms_at = models.DateTimeField(null=True, blank=True)
 	objects = CustomUserManager()
 
@@ -52,16 +75,19 @@ class User(AbstractUser):
 
 	def mark_terms_accepted(self):
 		self.accepted_terms_at = timezone.now()
-	
+
 
 class ProducerProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='producer_profile')
     store_name = models.CharField(max_length=255)
     store_description = models.TextField(blank=True)
+    description = models.TextField(blank=True)
     store_created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now=True)
     store_address = models.TextField(blank=True, default="")
     store_contact = models.TextField(blank=True, default="")
-    
+    contact_info = models.TextField(blank=True, default="")
+    farm_story = models.TextField(blank=True, default="", help_text="The farm's story, background, and mission")
 
     def __str__(self):
         return self.store_name

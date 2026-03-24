@@ -17,7 +17,12 @@ type UserProfile = {
   first_name: string;
   last_name: string;
   phone_number: string | null;
+  phone: string | null;
+  role: string;
+  is_active: boolean;
   address: string | null;
+  postcode: string | null;
+  delivery_address: string | null;
   customer_role: string | null;
   is_producer: boolean;
   accepted_terms_at: string | null;
@@ -47,6 +52,8 @@ const inputStyle: React.CSSProperties = {
   padding: "10px 12px",
   borderRadius: 10,
   border: "1px solid #ddd",
+  width: "100%",
+  boxSizing: "border-box",
 };
 
 const sectionTitle: React.CSSProperties = {
@@ -75,6 +82,15 @@ const errorBox: React.CSSProperties = {
   color: "#8a1f1f",
 };
 
+const sectionHeading: React.CSSProperties = {
+  fontSize: "1.1rem",
+  fontWeight: 700,
+  color: "#1f4d3a",
+  margin: "24px 0 12px",
+  paddingTop: 12,
+  borderTop: "2px solid #e5e7eb",
+};
+
 export default function User() {
   const { user, loading } = useAuth();
   const access = localStorage.getItem("access");
@@ -86,15 +102,20 @@ export default function User() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState(""); 
-  const [address, setAddress] = useState(""); 
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [address, setAddress] = useState("");
+  const [postcode, setPostcode] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
   const [customerRole, setCustomerRole] = useState("");
+
+  // Address editing
+  const [editAddress, setEditAddress] = useState(false);
 
   // Editable producer fields
   const [storeName, setStoreName] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
   const [storeContact, setStoreContact] = useState("");
-  const [storeAddress, setStoreAddress] = useState("");  
+  const [storeAddress, setStoreAddress] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -117,13 +138,15 @@ export default function User() {
     setEmail(data.email ?? "");
     setFirstName(data.first_name ?? "");
     setLastName(data.last_name ?? "");
-    setPhoneNumber(data.phone_number ?? ""); 
-    setAddress(data.address ?? "");                    
+    setPhoneNumber(data.phone_number ?? data.phone ?? "");
+    setAddress(data.address ?? "");
+    setPostcode(data.postcode ?? "");
+    setDeliveryAddress(data.delivery_address ?? "");
     setCustomerRole(data.customer_role ?? "");
     setStoreName(data.producer_profile?.store_name ?? "");
     setStoreDescription(data.producer_profile?.store_description ?? "");
     setStoreContact(data.producer_profile?.store_contact ?? "");
-    setStoreAddress(data.producer_profile?.store_address ?? "");   
+    setStoreAddress(data.producer_profile?.store_address ?? "");
   };
 
   useEffect(() => {
@@ -191,7 +214,7 @@ export default function User() {
         email,
         first_name: firstName,
         last_name: lastName,
-        phone_number: phoneNumber,                   
+        phone_number: phoneNumber,
         address: address,
         ...(!profile?.is_producer && { customer_role: customerRole }),
         ...(profile?.is_producer && {
@@ -199,7 +222,7 @@ export default function User() {
             store_name: storeName,
             store_description: storeDescription,
             store_contact: storeContact,
-            store_address: storeAddress,                 
+            store_address: storeAddress,
           },
         }),
       };
@@ -227,6 +250,44 @@ export default function User() {
     }
   }
 
+  async function saveAddress() {
+    setSaving(true);
+    setMsg(null);
+    setErr(null);
+
+    try {
+      await api.patch("/accounts/auth/user/", {
+        address,
+        postcode,
+        delivery_address: deliveryAddress,
+      });
+
+      const refreshed = await api.get<UserProfile>("/accounts/auth/user/");
+      setProfile(refreshed.data);
+      setAddress(String(refreshed.data.address ?? ""));
+      setPostcode(String(refreshed.data.postcode ?? ""));
+      setDeliveryAddress(String(refreshed.data.delivery_address ?? ""));
+
+      setEditAddress(false);
+      setMsg("Address updated successfully.");
+    } catch (e: any) {
+      const data = e?.response?.data;
+      const message =
+        data?.detail ||
+        data?.error ||
+        (data && typeof data === "object"
+          ? Object.entries(data)
+              .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+              .join(" | ")
+          : null) ||
+        e?.message ||
+        "Failed to update address";
+      setErr(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div style={card}>
       <h2 style={{ marginTop: 0 }}>Your Account</h2>
@@ -248,6 +309,14 @@ export default function User() {
           )}
         </div>
 
+        {/* Role — read only */}
+        {profile.role && (
+          <div style={row}>
+            <div style={label}>Role</div>
+            <div>{profile.role}</div>
+          </div>
+        )}
+
         {/* First name — editable */}
         <div style={row}>
           <div style={label}>First name</div>
@@ -268,7 +337,7 @@ export default function User() {
           )}
         </div>
 
-        {/* Phone number — editable, shown for all users */}
+        {/* Phone number — editable */}
         <div style={row}>
           <div style={label}>Phone number</div>
           {editMode ? (
@@ -279,22 +348,7 @@ export default function User() {
               style={inputStyle}
             />
           ) : (
-            <div>{profile.phone_number || "—"}</div>
-          )}
-        </div>
-
-        {/* Address — editable, shown for all users */}
-        <div style={row}>
-          <div style={label}>Address</div>
-          {editMode ? (
-            <input
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Address"
-              style={inputStyle}
-            />
-          ) : (
-            <div>{profile.address || "—"}</div>
+            <div>{profile.phone_number || profile.phone || "—"}</div>
           )}
         </div>
 
@@ -332,7 +386,6 @@ export default function User() {
           <div style={sectionTitle}>Store Info</div>
           <div>
 
-            {/* Store name — editable */}
             <div style={row}>
               <div style={label}>Store name</div>
               {editMode ? (
@@ -342,7 +395,6 @@ export default function User() {
               )}
             </div>
 
-            {/* Store description — editable */}
             <div style={row}>
               <div style={label}>Description</div>
               {editMode ? (
@@ -357,7 +409,6 @@ export default function User() {
               )}
             </div>
 
-            {/* Store contact — editable */}
             <div style={row}>
               <div style={label}>Contact</div>
               {editMode ? (
@@ -367,7 +418,6 @@ export default function User() {
               )}
             </div>
 
-            {/* Store address — editable */}
             <div style={row}>
               <div style={label}>Store address</div>
               {editMode ? (
@@ -383,7 +433,6 @@ export default function User() {
               )}
             </div>
 
-            {/* Store created at — read only */}
             <div style={row}>
               <div style={label}>Store since</div>
               <div>
@@ -449,7 +498,145 @@ export default function User() {
             </button>
           </>
         )}
+      </div>
 
+      {/* ── Delivery Address ── */}
+      <h3 style={sectionHeading}>Delivery Address</h3>
+
+      {!editAddress ? (
+        <>
+          <div style={row}>
+            <div style={label}>Street address</div>
+            <div>{profile.address || profile.delivery_address || "Not set"}</div>
+          </div>
+          <div style={row}>
+            <div style={label}>Postcode</div>
+            <div>{profile.postcode || "Not set"}</div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMsg(null);
+              setErr(null);
+              setEditAddress(true);
+            }}
+            style={{
+              marginTop: 12,
+              padding: "10px 12px",
+              borderRadius: 10,
+              cursor: "pointer",
+            }}
+          >
+            Edit address
+          </button>
+        </>
+      ) : (
+        <>
+          <div style={row}>
+            <div style={label}>Street address</div>
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="123 High Street"
+              style={inputStyle}
+            />
+          </div>
+          <div style={row}>
+            <div style={label}>Postcode</div>
+            <input
+              value={postcode}
+              onChange={(e) => setPostcode(e.target.value)}
+              placeholder="BS1 1AA"
+              style={inputStyle}
+            />
+          </div>
+          <div style={row}>
+            <div style={label}>Delivery address</div>
+            <input
+              value={deliveryAddress}
+              onChange={(e) => setDeliveryAddress(e.target.value)}
+              placeholder="Same as above, or a different delivery address"
+              style={inputStyle}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
+            <button
+              type="button"
+              onClick={saveAddress}
+              disabled={saving}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                cursor: saving ? "not-allowed" : "pointer",
+                background: "#111",
+                color: "#fff",
+                border: "none",
+              }}
+            >
+              {saving ? "Saving…" : "Save address"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditAddress(false);
+                setErr(null);
+                setMsg(null);
+                setAddress(String(profile.address ?? ""));
+                setPostcode(String(profile.postcode ?? ""));
+                setDeliveryAddress(String(profile.delivery_address ?? ""));
+              }}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                cursor: "pointer",
+                background: "#fff",
+                border: "1px solid #ddd",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ── My Orders link ── */}
+      {(profile.role === "customer" || !profile.is_producer) && (
+        <>
+          <h3 style={sectionHeading}>My Orders</h3>
+          <p style={{ margin: "0 0 12px", color: "#374151", lineHeight: 1.6 }}>
+            View your order history, track deliveries, and reorder past purchases.
+          </p>
+          <Link
+            to="/orders"
+            style={{
+              display: "inline-block",
+              padding: "10px 18px",
+              borderRadius: 10,
+              background: "#1f4d3a",
+              color: "#fff",
+              textDecoration: "none",
+              fontWeight: 600,
+              fontSize: "0.9rem",
+            }}
+          >
+            View Order History
+          </Link>
+        </>
+      )}
+
+      {/* ── Footer actions ── */}
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          marginTop: 24,
+          paddingTop: 16,
+          borderTop: "2px solid #e5e7eb",
+          flexWrap: "wrap",
+        }}
+      >
         <button
           type="button"
           onClick={() => {
