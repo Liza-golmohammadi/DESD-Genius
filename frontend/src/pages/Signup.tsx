@@ -1,80 +1,110 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
+import { useState } from "react";
+import { Navigate, Link } from "react-router";
 import axios from "axios";
 import useAuth from "../context/useAuth";
 
-type UserType = "customer" | "producer";
-
-type SignupFormData = {
+interface SignupFormData {
   email: string;
-  first_name: string;
-  last_name: string;
   password: string;
   confirm_password: string;
+  first_name: string;
+  last_name: string;
+  accepted_terms: boolean;
+  customer_role: string;
+  store_name: string;
+  store_description: string;
+  store_contact: string;
+}
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "0.9rem 1rem",
+  borderRadius: "10px",
+  border: "1px solid #d1d5db",
+  fontSize: "1rem",
+  outline: "none",
+  boxSizing: "border-box",
 };
 
-const Signup = () => {
-  const [searchParams] = useSearchParams();
-  const { registerUser } = useAuth();
 
-  const [userType, setUserType] = useState<UserType>("customer");
+const Signup = () => {
+  const { user, registerCustomer, registerProducer } = useAuth();
+  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isProducer, setIsProducer] = useState<boolean>(false);
+
   const [formData, setFormData] = useState<SignupFormData>({
     email: "",
-    first_name: "",
-    last_name: "",
     password: "",
     confirm_password: "",
+    first_name: "",
+    last_name: "",
+    accepted_terms: false,
+    customer_role: "individual",
+    store_name: "",
+    store_description: "",
+    store_contact: "",
   });
 
-  useEffect(() => {
-    const type = searchParams.get("type");
-    setUserType(type === "producer" ? "producer" : "customer");
-  }, [searchParams]);
+  if (user) return <Navigate to="/" replace />;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError("");
 
     if (formData.password !== formData.confirm_password) {
-      alert("Passwords do not match");
+      setError("Passwords do not match");
       return;
     }
 
+    setLoading(true);
     try {
-      await registerUser({
-        email: formData.email,
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        password: formData.password,
-        role: userType,
-      });
-
-      alert("Signup successful");
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const data = err.response?.data;
-        alert(JSON.stringify(data));
+      if (isProducer) {
+        await registerProducer({
+          email: formData.email,
+          password: formData.password,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          accepted_terms: formData.accepted_terms,
+          store_name: formData.store_name,
+          store_description: formData.store_description,
+          store_contact: formData.store_contact,
+        });
       } else {
-        alert("Something went wrong");
+        await registerCustomer({
+          email: formData.email,
+          password: formData.password,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          accepted_terms: formData.accepted_terms,
+          customer_role: formData.customer_role,
+        });
       }
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as Record<string, string[]> | undefined;
+        if (data) {
+          const messages = Object.entries(data)
+            .map(([field, msgs]) => `${field}: ${msgs.join(", ")}`)
+            .join("\n");
+          setError(messages);
+        } else {
+          setError("Registration failed");
+        }
+      } else {
+        setError((err as Error).message || "Something went wrong");
+      }
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "0.9rem 1rem",
-    borderRadius: "10px",
-    border: "1px solid #d1d5db",
-    fontSize: "1rem",
-    outline: "none",
-    boxSizing: "border-box",
   };
 
   return (
@@ -99,14 +129,9 @@ const Signup = () => {
           border: "1px solid #e5e7eb",
         }}
       >
+        {/* Header */}
         <div style={{ marginBottom: "1.5rem" }}>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "2rem",
-              color: "#1f4d3a",
-            }}
-          >
+          <h1 style={{ margin: 0, fontSize: "2rem", color: "#1f4d3a" }}>
             Create Account
           </h1>
           <p
@@ -122,6 +147,7 @@ const Signup = () => {
           </p>
         </div>
 
+        {/* Customer / Producer Toggle */}
         <div
           style={{
             display: "grid",
@@ -132,15 +158,12 @@ const Signup = () => {
         >
           <button
             type="button"
-            onClick={() => setUserType("customer")}
+            onClick={() => setIsProducer(false)}
             style={{
               padding: "0.9rem",
               borderRadius: "10px",
-              border:
-                userType === "customer"
-                  ? "2px solid #1f4d3a"
-                  : "1px solid #d1d5db",
-              backgroundColor: userType === "customer" ? "#e8f3ee" : "#ffffff",
+              border: !isProducer ? "2px solid #1f4d3a" : "1px solid #d1d5db",
+              backgroundColor: !isProducer ? "#e8f3ee" : "#ffffff",
               color: "#1f4d3a",
               fontWeight: 600,
               cursor: "pointer",
@@ -148,18 +171,14 @@ const Signup = () => {
           >
             Customer
           </button>
-
           <button
             type="button"
-            onClick={() => setUserType("producer")}
+            onClick={() => setIsProducer(true)}
             style={{
               padding: "0.9rem",
               borderRadius: "10px",
-              border:
-                userType === "producer"
-                  ? "2px solid #1f4d3a"
-                  : "1px solid #d1d5db",
-              backgroundColor: userType === "producer" ? "#e8f3ee" : "#ffffff",
+              border: isProducer ? "2px solid #1f4d3a" : "1px solid #d1d5db",
+              backgroundColor: isProducer ? "#e8f3ee" : "#ffffff",
               color: "#1f4d3a",
               fontWeight: 600,
               cursor: "pointer",
@@ -169,22 +188,20 @@ const Signup = () => {
           </button>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            display: "grid",
-            gap: "1rem",
-          }}
-        >
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1rem" }}>
+
+          {/* Email */}
           <input
             name="email"
             type="email"
             value={formData.email}
             onChange={handleChange}
             placeholder="Email address"
+            required
             style={inputStyle}
           />
 
+          {/* First / Last name */}
           <div
             style={{
               display: "grid",
@@ -200,7 +217,6 @@ const Signup = () => {
               placeholder="First name"
               style={inputStyle}
             />
-
             <input
               name="last_name"
               type="text"
@@ -211,41 +227,148 @@ const Signup = () => {
             />
           </div>
 
+          {/* Password */}
           <input
             name="password"
             type="password"
             value={formData.password}
             onChange={handleChange}
-            placeholder="Password"
+            placeholder="Password (min 4 characters)"
+            required
+            minLength={4}
             style={inputStyle}
           />
-
           <input
             name="confirm_password"
             type="password"
             value={formData.confirm_password}
             onChange={handleChange}
             placeholder="Confirm password"
+            required
             style={inputStyle}
           />
 
+          {/* Customer fields */}
+          {!isProducer && (
+            <select
+              name="customer_role"
+              value={formData.customer_role}
+              onChange={handleChange}
+              required
+              style={inputStyle}
+            >
+              <option value="individual">Individual</option>
+              <option value="community_group">Community Group</option>
+              <option value="restaurant">Restaurant</option>
+            </select>
+          )}
+
+          {/* Producer fields */}
+          {isProducer && (
+            <>
+              <input
+                name="store_name"
+                type="text"
+                value={formData.store_name}
+                onChange={handleChange}
+                placeholder="Store name"
+                required
+                style={inputStyle}
+              />
+              <textarea
+                name="store_description"
+                value={formData.store_description}
+                onChange={handleChange}
+                placeholder="Store description — tell customers what makes your store unique."
+                rows={4}
+                style={{ ...inputStyle, resize: "vertical" }}
+              />
+              <input
+                name="store_contact"
+                type="text"
+                value={formData.store_contact}
+                onChange={handleChange}
+                placeholder="Store contact (phone or email)"
+                style={inputStyle}
+              />
+            </>
+          )}
+
+          {/* Terms */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.9rem",
+              color: "#4b5563",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              name="accepted_terms"
+              type="checkbox"
+              checked={formData.accepted_terms}
+              onChange={handleChange}
+              required
+            />
+            I agree to the Terms and Conditions
+          </label>
+
+          {/* Error */}
+          {error && (
+            <p
+              style={{
+                margin: 0,
+                padding: "0.75rem 1rem",
+                borderRadius: "8px",
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
+                color: "#dc2626",
+                fontSize: "0.9rem",
+                whiteSpace: "pre-line",
+              }}
+            >
+              {error}
+            </p>
+          )}
+
+          {/* Submit */}
           <button
             type="submit"
+            disabled={loading}
             style={{
               marginTop: "0.5rem",
               padding: "1rem",
               borderRadius: "10px",
               border: "none",
-              backgroundColor: "#1f4d3a",
+              backgroundColor: loading ? "#4b7a65" : "#1f4d3a",
               color: "#ffffff",
               fontSize: "1rem",
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
+              transition: "background-color 0.2s",
             }}
           >
-            Sign Up
+            {loading ? "Signing up..." : "Sign Up"}
           </button>
         </form>
+
+        {/* Login link */}
+        <p
+          style={{
+            marginTop: "1.25rem",
+            marginBottom: 0,
+            textAlign: "center",
+            color: "#4b5563",
+            fontSize: "0.9rem",
+          }}
+        >
+          Already have an account?{" "}
+          <Link to="/login" style={{ color: "#1f4d3a", fontWeight: 600 }}>
+            Log in
+          </Link>
+        </p>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import api from "../api";
 
 type Producer = {
@@ -22,6 +23,7 @@ export default function Producers() {
       try {
         setError(null);
         const res = await api.get<Producer[]>("/accounts/producers/");
+        console.log(res.data)
         setItems(res.data);
       } catch (e: any) {
         setError(e?.message || "Failed to load producers");
@@ -40,6 +42,7 @@ export default function Producers() {
 
       <div style={{ display: "grid", gap: 12 }}>
         {items.map((p) => (
+          
           <div
             key={p.id}
             style={{
@@ -49,12 +52,18 @@ export default function Producers() {
               background: "#fff",
             }}
           >
-            <a
-              href={`/producers/${p.id}`}
-              style={{ fontWeight: 800, textDecoration: "none", color: "inherit" }}
+            <Link
+              to={`/producers/${p.id}`}
+              style={{
+                fontWeight: 800,
+                textDecoration: "none",
+                color: "inherit",
+              }}
             >
-              {p.store_name || `${p.first_name} ${p.last_name}`.trim() || p.email}
-            </a>
+              {p.store_name ||
+                `${p.first_name} ${p.last_name}`.trim() ||
+                p.email}
+            </Link>
 
             {p.description && (
               <p style={{ marginTop: 8, marginBottom: 0 }}>{p.description}</p>
@@ -70,7 +79,7 @@ export default function Producers() {
                   whiteSpace: "pre-line",
                 }}
               >
-                 {p.contact_info}
+                {p.contact_info}
               </p>
             )}
           </div>

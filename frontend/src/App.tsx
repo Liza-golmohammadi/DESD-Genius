@@ -33,12 +33,13 @@ function Logout() {
 }
 
 function Layout() {
-  const { user, authTokens } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
 
-  // Reactive auth state (updates right after login/logout)
-  const isAuthed = !!authTokens?.access || !!localStorage.getItem("access");
+  const isAuthed = !!localStorage.getItem("access");
+
+  const isProducer = !!user?.producer_profile;
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -124,7 +125,6 @@ function Layout() {
         <div style={headerInner}>
           {/* Brand + nav */}
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-            {/* Leaf icon + brand name */}
             <NavLink to="/" style={brand}>
               <svg width={22} height={22} viewBox="0 0 24 24" fill="#40916c">
                 <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 0-5 8" />
@@ -150,13 +150,13 @@ function Layout() {
                 </NavLink>
               )}
 
-              {isAuthed && user?.role === "producer" && (
+              {isAuthed && isProducer && (
                 <NavLink to="/producer/dashboard" style={pill}>
                   Dashboard
                 </NavLink>
               )}
 
-              {isAuthed && user?.role === "customer" && (
+              {isAuthed && !isProducer && (
                 <NavLink to="/orders" style={pill}>
                   My Orders
                 </NavLink>
@@ -206,7 +206,6 @@ function Layout() {
 
           {/* Right side */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {/* Cart icon */}
             <div style={{ position: "relative", cursor: "pointer" }}>
               <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2}>
                 <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
@@ -242,22 +241,21 @@ function Layout() {
   );
 }
 
-// Redirect users away from auth pages depending on login state
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { authTokens } = useAuth();
-  const isAuthed = !!authTokens?.access || !!localStorage.getItem("access");
+  const { user } = useAuth();
+  const isAuthed = !!localStorage.getItem("access");
   const location = useLocation();
 
   if (isAuthed) {
-    return <Navigate to="/user" replace state={{ from: location }} />;
+    const destination = user?.producer_profile ? "/producer/dashboard" : "/";
+    return <Navigate to={destination} replace state={{ from: location }} />;
   }
   return <>{children}</>;
 }
 
-// Protect routes like /user
+// Protect routes that require login
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { authTokens } = useAuth();
-  const isAuthed = !!authTokens?.access || !!localStorage.getItem("access");
+  const isAuthed = !!localStorage.getItem("access");
   const location = useLocation();
 
   if (!isAuthed) {
@@ -271,84 +269,36 @@ function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
-      <Route
-        path="/producers"
-        element={
-          <RequireAuth>
-            <Producers />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/producers/:id"
-        element={
-          <RequireAuth>
-            <ProducerDetail />
-          </RequireAuth>
-        }
-      />
-
-      <Route path="/signup" element={<AuthGate><Signup /></AuthGate>} />
-      <Route path="/login" element={<AuthGate><Login /></AuthGate>} />
-      <Route path="/logout" element={<Logout />} />
-
-      <Route path="/user" element={<RequireAuth><User /></RequireAuth>} />
-
-      {/*Only producers can access the dashboard */}
-      <Route element={<ProtectedRoute allowedRoles={["producer"]} />}>
-        <Route path="/producer/dashboard" element={<ProducerDashboard />} />
-      </Route>
-
-      <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
-        <Route path="/orders" element={<Orders />} />
-      </Route>
-
-      <Route path="*" element={<Navigate to="/" replace />} />
 
         <Route
-          path="/signup"
-          element={
-            <AuthGate>
-              <Signup />
-            </AuthGate>
-          }
+          path="/producers"
+          element={<RequireAuth><Producers /></RequireAuth>}
         />
-
         <Route
-          path="/login"
-          element={
-            <AuthGate>
-              <Login />
-            </AuthGate>
-          }
+          path="/producers/:id"
+          element={<RequireAuth><ProducerDetail /></RequireAuth>}
         />
 
+        <Route path="/signup" element={<AuthGate><Signup /></AuthGate>} />
+        <Route path="/login" element={<AuthGate><Login /></AuthGate>} />
         <Route path="/logout" element={<Logout />} />
 
-        <Route
-          path="/user"
-          element={
-            <RequireAuth>
-              <User />
-            </RequireAuth>
-          }
-        />
+        <Route path="/user" element={<RequireAuth><User /></RequireAuth>} />
 
+        {/* Producer only routes */}
         <Route element={<ProtectedRoute allowedRoles={["producer"]} />}>
           <Route path="/producer/dashboard" element={<ProducerDashboard />} />
         </Route>
 
+        {/* Customer only routes */}
         <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
           <Route path="/orders" element={<Orders />} />
         </Route>
 
-        <Route path="/producers/:id" element={<ProducerDetail />} />
-        <Route path="*" element={<Navigate to="/" replace />} />  
-
         {/* TEMP ROUTE TO TEST ADMIN */}
-          <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin" element={<AdminDashboard />} />
 
-
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );

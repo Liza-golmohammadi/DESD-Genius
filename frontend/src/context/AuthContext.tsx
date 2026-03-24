@@ -8,12 +8,24 @@ import {
 import { useNavigate } from "react-router";
 import api from "../api";
 
-interface RegisterPayload {
+interface RegisterCustomerPayload {
   email: string;
   first_name: string;
   last_name: string;
   password: string;
-  role: "customer" | "producer";
+  customer_role: string;
+  accepted_terms: boolean;
+}
+
+interface RegisterProducerPayload {
+  email: string;
+  first_name: string;
+  last_name: string;
+  password: string;
+  store_name: string;
+  store_description?: string;
+  store_contact?: string;
+  accepted_terms: boolean;
 }
 
 interface User {
@@ -21,14 +33,17 @@ interface User {
   email: string;
   first_name?: string;
   last_name?: string;
-  role?: string;
-  is_active?: boolean;
+  customer_role?: string;
+  is_producer?: boolean;
+  accepted_terms_at?: string;
+  producer_profile?: {
+    store_name: string;
+    store_description: string;
+    store_contact: string;
+    store_created_at: string;
+  } | null;
 }
 
-interface AuthTokens {
-  access: string;
-  refresh: string;
-}
 
 interface LoginPayload {
   email: string;
@@ -37,11 +52,11 @@ interface LoginPayload {
 
 interface AuthContextType {
   user: User | null;
-  authTokens: AuthTokens | null;
   loading: boolean;
   setUser: React.Dispatch<React.SetStateAction<User | null>>; // set user
   loginUser: (payload: LoginPayload) => Promise<void>;
-  registerUser: (payload: RegisterPayload) => Promise<void>;
+  registerCustomer: (payload: RegisterCustomerPayload) => Promise<void>;
+  registerProducer: (payload: RegisterProducerPayload) => Promise<void>;
   logoutUser: () => Promise<void>;
 }
 
@@ -52,9 +67,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [authTokens, setAuthTokens] = useState<AuthTokens | null>(null);
   const [loading, setLoading] = useState(true);
-
   const navigate = useNavigate();
 
   const logoutUser = useCallback(async () => {
@@ -68,22 +81,20 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     } finally {
       localStorage.removeItem("access");
       localStorage.removeItem("refresh");
-      setAuthTokens(null);
       setUser(null);
     }
   }, []);
 
   const loginUser = useCallback(
     async ({ email, password }: LoginPayload) => {
-      const token = await api.post<AuthTokens>("/accounts/auth/login/", { email, password });
+      const token = await api.post("/accounts/token/", { email, password });
       localStorage.setItem("access", token.data.access);
       localStorage.setItem("refresh", token.data.refresh);
-      setAuthTokens(token.data);
 
-      const res = await api.get<User>("/accounts/auth/user/");
+      const res = await api.get<User>("/accounts/auth/user/me/");
       setUser(res.data);
-
-      if (res.data.role === "producer") {
+      console.log(res.data)
+      if (res.data.producer_profile) {
         navigate("/producer/dashboard");
       } else {
         navigate("/");
@@ -101,9 +112,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
         setLoading(false);
         return;
       }
-      setAuthTokens({ access, refresh });
       try {
-        const res = await api.get<User>("/accounts/auth/user/");
+        const res = await api.get<User>("/accounts/auth/user/me/");
         setUser(res.data);
       } catch {
         logoutUser();
@@ -114,20 +124,40 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     auth();
   }, []);
 
-  const registerUser = useCallback(
-    async (payload: RegisterPayload) => {
-      await api.post("/accounts/auth/register/", payload);
-      await loginUser({
-        email: payload.email,
-        password: payload.password,
-      });
-    },
-    [loginUser],
-  );
+  const registerCustomer = useCallback(
+  async (payload: RegisterCustomerPayload) => {
+    await api.post("/accounts/auth/register/customer/", payload);
+    await loginUser({
+      email: payload.email,
+      password: payload.password,
+    });
+  },
+  [loginUser],
+);
+
+const registerProducer = useCallback(
+  async (payload: RegisterProducerPayload) => {
+    await api.post("/accounts/auth/register/producer/", payload);
+    await loginUser({
+      email: payload.email,
+      password: payload.password,
+    });
+
+    // 3. Update producer profile (signal creates it, we just update it)
+    /* await api.patch("/accounts/auth/me/", {
+      producer_profile: {
+        store_name: payload.store_name,
+        store_description: payload.store_description,
+        store_contact: payload.store_contact,
+      },
+    }); */
+  },
+  [loginUser],
+);
 
   const contextData = useMemo(
-    () => ({ user, authTokens, loading, setUser, loginUser, registerUser, logoutUser }),
-    [user, authTokens, loading, loginUser, registerUser, logoutUser],
+    () => ({ user, loading, setUser, loginUser, registerCustomer, registerProducer, logoutUser }),
+    [user, loading, loginUser, registerCustomer, registerProducer, logoutUser],
   );
   return (
     <AuthContext.Provider value={contextData}>{children}</AuthContext.Provider>

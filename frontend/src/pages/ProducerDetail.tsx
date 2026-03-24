@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router";
 import api from "../api";
 
 type Producer = {
@@ -23,6 +23,8 @@ export default function ProducerDetail() {
     (async () => {
       try {
         setError(null);
+        console.log("ID:", id);
+
         const res = await api.get<Producer>(`/accounts/producers/${id}/`);
         setItem(res.data);
       } catch (e: any) {

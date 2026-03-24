@@ -61,7 +61,7 @@ INSTALLED_APPS = [
 	'rest_framework',
 	'rest_framework_simplejwt',
 	'corsheaders',
-	'accounts',
+	'accounts.apps.AccountsConfig',
     'products',
     'cart',
     'orders',

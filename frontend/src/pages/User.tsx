@@ -3,13 +3,22 @@ import { Link } from "react-router-dom";
 import api from "../api";
 import useAuth from "../context/useAuth";
 
+type ProducerProfile = {
+  store_name: string;
+  store_description: string;
+  store_contact: string;
+  store_created_at: string;
+};
+
 type UserProfile = {
-  id?: number;
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  role?: string;
-  is_active?: boolean;
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  customer_role: string | null;
+  is_producer: boolean;
+  accepted_terms_at: string | null;
+  producer_profile: ProducerProfile | null;
 };
 
 const card: React.CSSProperties = {
@@ -37,6 +46,15 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid #ddd",
 };
 
+const sectionTitle: React.CSSProperties = {
+  margin: "20px 0 8px",
+  fontWeight: 700,
+  fontSize: 14,
+  color: "#1f4d3a",
+  textTransform: "uppercase",
+  letterSpacing: 0.5,
+};
+
 const successBox: React.CSSProperties = {
   marginTop: 12,
   padding: 12,
@@ -59,23 +77,27 @@ export default function User() {
   const access = localStorage.getItem("access");
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
-
   const [editMode, setEditMode] = useState(false);
+
+  // Editable user fields
+  const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [customerRole, setCustomerRole] = useState("");
 
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  // Editable producer fields
+  const [storeName, setStoreName] = useState("");
+  const [storeDescription, setStoreDescription] = useState("");
+  const [storeContact, setStoreContact] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // Logged out guard
   if (!access) {
     return (
       <div style={card}>
-        <h2 style={{ marginTop: 0 }}>You’re not logged in</h2>
+        <h2 style={{ marginTop: 0 }}>You're not logged in</h2>
         <p style={{ opacity: 0.8 }}>Please log in to view your account details.</p>
         <div style={{ display: "flex", gap: 12 }}>
           <Link to="/login">Go to Login</Link>
@@ -85,21 +107,27 @@ export default function User() {
     );
   }
 
-  // Use context user if available, otherwise fetch once
+  const populateFields = (data: UserProfile) => {
+    setEmail(data.email ?? "");
+    setFirstName(data.first_name ?? "");
+    setLastName(data.last_name ?? "");
+    setCustomerRole(data.customer_role ?? "");
+    setStoreName(data.producer_profile?.store_name ?? "");
+    setStoreDescription(data.producer_profile?.store_description ?? "");
+    setStoreContact(data.producer_profile?.store_contact ?? "");
+  };
+
   useEffect(() => {
     if (user) {
-      setProfile(user as any);
-      setFirstName(String((user as any).first_name ?? ""));
-      setLastName(String((user as any).last_name ?? ""));
+      setProfile(user as UserProfile);
+      populateFields(user as UserProfile);
       return;
     }
-
     (async () => {
       try {
-        const res = await api.get<UserProfile>("/accounts/auth/user/");
+        const res = await api.get<UserProfile>("/accounts/auth/me/");
         setProfile(res.data);
-        setFirstName(String(res.data.first_name ?? ""));
-        setLastName(String(res.data.last_name ?? ""));
+        populateFields(res.data);
       } catch {
         // handled by UI below
       }
@@ -149,43 +177,41 @@ export default function User() {
     setMsg(null);
     setErr(null);
 
-    // Validate passwords only if user is trying to change password
-    if (newPassword.trim() && newPassword !== confirmPassword) {
-      setErr("Passwords do not match.");
-      setSaving(false);
-      return;
-    }
-
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
+        email,
         first_name: firstName,
         last_name: lastName,
+        // only send customer_role if not a producer
+        ...(!profile?.is_producer && { customer_role: customerRole }),
+        // only send producer_profile if user is a producer
+        ...(profile?.is_producer && {
+          producer_profile: {
+            store_name: storeName,
+            store_description: storeDescription,
+            store_contact: storeContact,
+          },
+        }),
       };
 
-      if (newPassword.trim()) payload.password = newPassword;
-
-      await api.patch("/accounts/auth/user/", payload);
-
-      const refreshed = await api.get<UserProfile>("/accounts/auth/user/");
+      await api.patch("/accounts/auth/me/", payload);
+      const refreshed = await api.get<UserProfile>("/accounts/auth/me/");
       setProfile(refreshed.data);
+      populateFields(refreshed.data);
 
-      setNewPassword("");
-      setConfirmPassword("");
       setEditMode(false);
       setMsg("Profile updated successfully.");
-    } catch (e: any) {
-      const data = e?.response?.data;
-      const message =
-        data?.detail ||
-        data?.error ||
-        (data && typeof data === "object"
-          ? Object.entries(data)
-              .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
-              .join(" | ")
-          : null) ||
-        e?.message ||
-        "Failed to update profile";
-      setErr(message);
+    } catch (e: unknown) {
+      const axiosErr = e as { response?: { data?: Record<string, string[]> } };
+      const data = axiosErr.response?.data;
+      if (data) {
+        const message = Object.entries(data)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+          .join(" | ");
+        setErr(message);
+      } else {
+        setErr((e as Error).message || "Failed to update profile");
+      }
     } finally {
       setSaving(false);
     }
@@ -198,159 +224,185 @@ export default function User() {
       {msg && <div style={successBox}>{msg}</div>}
       {err && <div style={errorBox}>{err}</div>}
 
-      <div style={{ marginTop: 16 }}>
-        {"email" in profile && (
-          <div style={row}>
-            <div style={label}>Email</div>
-            <div>{String((profile as any).email)}</div>
-          </div>
-        )}
+      {/* ── Account Info ── */}
+      <div style={sectionTitle}>Account Info</div>
+      <div>
+        {/* Email — editable */}
+        <div style={row}>
+          <div style={label}>Email</div>
+          {editMode ? (
+            <input value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+          ) : (
+            <div>{profile.email}</div>
+          )}
+        </div>
 
-        {"role" in profile && (
-          <div style={row}>
-            <div style={label}>Role</div>
-            <div>{String((profile as any).role)}</div>
-          </div>
-        )}
-
-        {"is_active" in profile && (
-          <div style={row}>
-            <div style={label}>Active</div>
-            <div>{String((profile as any).is_active)}</div>
-          </div>
-        )}
-
+        {/* First name — editable */}
         <div style={row}>
           <div style={label}>First name</div>
           {editMode ? (
-            <input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              style={inputStyle}
-            />
+            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} style={inputStyle} />
           ) : (
-            <div>{String((profile as any).first_name ?? "")}</div>
+            <div>{profile.first_name}</div>
           )}
         </div>
 
+        {/* Last name — editable */}
         <div style={row}>
           <div style={label}>Last name</div>
           {editMode ? (
-            <input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              style={inputStyle}
-            />
+            <input value={lastName} onChange={(e) => setLastName(e.target.value)} style={inputStyle} />
           ) : (
-            <div>{String((profile as any).last_name ?? "")}</div>
+            <div>{profile.last_name}</div>
           )}
         </div>
 
-        {editMode && (
-  <>
+        {/* Customer role — editable, only for customers */}
+        {!profile.is_producer && (
           <div style={row}>
-            <div style={label}>New password</div>
-            <input
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              type="password"
-              placeholder="Leave blank to keep current password"
-              style={inputStyle}
-            />
+            <div style={label}>Account type</div>
+            {editMode ? (
+              <select
+                value={customerRole}
+                onChange={(e) => setCustomerRole(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="individual">Individual</option>
+                <option value="restaurant">Restaurant</option>
+              </select>
+            ) : (
+              <div style={{ textTransform: "capitalize" }}>{profile.customer_role ?? "—"}</div>
+            )}
           </div>
+        )}
 
-          <div style={{ ...row, borderBottom: "none" }}>
-            <div style={label}>Confirm password</div>
-            <input
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              type="password"
-              placeholder="Re-enter new password"
-              style={inputStyle}
-            />
+        {/* Is producer — read only */}
+        <div style={row}>
+          <div style={label}>Account role</div>
+          <div>{profile.is_producer ? "Producer" : "Customer"}</div>
+        </div>
+      </div>
+
+      {/* ── Producer Store Info ── */}
+      {profile.is_producer && profile.producer_profile && (
+        <>
+          <div style={sectionTitle}>Store Info</div>
+          <div>
+            {/* Store name — editable */}
+            <div style={row}>
+              <div style={label}>Store name</div>
+              {editMode ? (
+                <input value={storeName} onChange={(e) => setStoreName(e.target.value)} style={inputStyle} />
+              ) : (
+                <div>{profile.producer_profile.store_name || "—"}</div>
+              )}
+            </div>
+
+            {/* Store description — editable */}
+            <div style={row}>
+              <div style={label}>Description</div>
+              {editMode ? (
+                <textarea
+                  value={storeDescription}
+                  onChange={(e) => setStoreDescription(e.target.value)}
+                  rows={3}
+                  style={{ ...inputStyle, resize: "vertical" }}
+                />
+              ) : (
+                <div>{profile.producer_profile.store_description || "—"}</div>
+              )}
+            </div>
+
+            {/* Store contact — editable */}
+            <div style={row}>
+              <div style={label}>Contact</div>
+              {editMode ? (
+                <input value={storeContact} onChange={(e) => setStoreContact(e.target.value)} style={inputStyle} />
+              ) : (
+                <div>{profile.producer_profile.store_contact || "—"}</div>
+              )}
+            </div>
+
+            {/* Store created at — read only */}
+            <div style={row}>
+              <div style={label}>Created since</div>
+              <div>
+                {profile.producer_profile.store_created_at
+                  ? new Date(profile.producer_profile.store_created_at).toLocaleDateString()
+                  : "—"}
+              </div>
+            </div>
           </div>
         </>
       )}
-      </div>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
-    {!editMode ? (
-      <button
-        type="button"
-        onClick={() => {
-          setMsg(null);
-          setErr(null);
+      {/* ── Actions ── */}
+      <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+        {!editMode ? (
+          <button
+            type="button"
+            onClick={() => {
+              setMsg(null);
+              setErr(null);
+              setEditMode(true);
+            }}
+            style={{ padding: "10px 12px", borderRadius: 10, cursor: "pointer" }}
+          >
+            Edit profile
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={saveProfile}
+              disabled={saving}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                cursor: saving ? "not-allowed" : "pointer",
+                background: "#1f4d3a",
+                color: "#fff",
+                border: "none",
+              }}
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
 
-          // Clear any old password inputs before editing
-          setNewPassword("");
-          setConfirmPassword("");
-
-          setEditMode(true);
-        }}
-        style={{ padding: "10px 12px", borderRadius: 10, cursor: "pointer" }}
-      >
-        Edit profile
-      </button>
-    ) : (
-      <>
-        <button
-          type="button"
-          onClick={saveProfile}
-          disabled={saving}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 10,
-            cursor: saving ? "not-allowed" : "pointer",
-            background: "#111",
-            color: "#fff",
-            border: "none",
-          }}
-        >
-          {saving ? "Saving…" : "Save changes"}
-        </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditMode(false);
+                setErr(null);
+                setMsg(null);
+                populateFields(profile);
+              }}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 10,
+                cursor: "pointer",
+                background: "#fff",
+                border: "1px solid #ddd",
+              }}
+            >
+              Cancel
+            </button>
+          </>
+        )}
 
         <button
           type="button"
           onClick={() => {
-            setEditMode(false);
-            setErr(null);
-            setMsg(null);
-
-            // Reset fields back to current profile values
-            setFirstName(String((profile as any).first_name ?? ""));
-            setLastName(String((profile as any).last_name ?? ""));
-
-            // Clear password fields
-            setNewPassword("");
-            setConfirmPassword("");
+            localStorage.removeItem("access");
+            localStorage.removeItem("refresh");
+            window.location.href = "/login";
           }}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 10,
-            cursor: "pointer",
-            background: "#fff",
-            border: "1px solid #ddd",
-          }}
+          style={{ padding: "10px 12px", borderRadius: 10, cursor: "pointer" }}
         >
-          Cancel
+          Log out
         </button>
-      </>
-    )}
 
-    <button
-      type="button"
-      onClick={() => {
-        localStorage.removeItem("access");
-        localStorage.removeItem("refresh");
-        window.location.href = "/login";
-      }}
-      style={{ padding: "10px 12px", borderRadius: 10, cursor: "pointer" }}
-    >
-      Log out
-    </button>
-
-    <Link to="/">Back to Home</Link>
-  </div>
+        <Link to="/">Back to Home</Link>
+      </div>
     </div>
   );
 }
