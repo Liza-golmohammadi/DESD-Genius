@@ -28,36 +28,47 @@ const Checkout = () => {
   const navigate = useNavigate();
 
   const [cartSummary, setCartSummary] = useState<CartSummary | null>(null);
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+
+  const [fullName, setFullName] = useState("");
+  const [streetAddress, setStreetAddress] = useState("");
+  const [postcode, setPostcode] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+
   const [producerDeliveryDates, setProducerDeliveryDates] = useState<Record<string, string>>({});
+
   const [cardName, setCardName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
 
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [confirmedCart, setConfirmedCart] = useState<CartSummary | null>(null);
+  const [confirmedAddress, setConfirmedAddress] = useState("");
+  const [confirmedName, setConfirmedName] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     const fetchCartSummary = async () => {
       try {
+        setLoading(true);
+        setError("");
+
         const response = await api.get<CartSummary>("/api/cart/");
         const data = response.data;
 
         setCartSummary(data);
 
         const initialDates: Record<string, string> = {};
-        if (Array.isArray(data?.producers)) {
-          data.producers.forEach((producer) => {
-            initialDates[String(producer.producer_id)] = "";
-          });
-        }
+        data.producers.forEach((producer) => {
+          initialDates[String(producer.producer_id)] = "";
+        });
+
         setProducerDeliveryDates(initialDates);
-        setError("");
       } catch (err: any) {
-        setError(err?.response?.data?.error || err?.message || "Failed to load cart summary.");
+        setError(err?.response?.data?.error || err?.message || "Failed to load cart.");
       } finally {
         setLoading(false);
       }
@@ -67,14 +78,14 @@ const Checkout = () => {
   }, []);
 
   const minDate = useMemo(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 2);
-    return date.toISOString().split("T")[0];
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toISOString().split("T")[0];
   }, []);
 
-  const formatPrice = (value: string | number | undefined) => {
-    const numericValue = typeof value === "string" ? parseFloat(value) : value || 0;
-    return `£${numericValue.toFixed(2)}`;
+  const formatPrice = (value: number | string | undefined) => {
+    const num = typeof value === "string" ? parseFloat(value) : value || 0;
+    return `£${num.toFixed(2)}`;
   };
 
   const handleProducerDateChange = (producerId: number, value: string) => {
@@ -84,65 +95,76 @@ const Checkout = () => {
     }));
   };
 
-  const validateMockPayment = () => {
+  const validatePayment = () => {
     if (!cardName.trim()) return "Cardholder name is required.";
-    if (cardNumber.replace(/\s/g, "").length < 12) return "Card number looks too short.";
+    if (cardNumber.replace(/\s/g, "").length < 12) return "Please enter a valid card number.";
     if (!expiry.trim()) return "Expiry date is required.";
-    if (cvv.trim().length < 3) return "CVV must be at least 3 digits.";
+    if (cvv.trim().length < 3) return "Please enter a valid CVV.";
     return "";
+  };
+
+  const buildDeliveryAddress = () => {
+    const lines = [
+      fullName.trim(),
+      streetAddress.trim(),
+      postcode.trim(),
+      phoneNumber.trim() ? `Phone: ${phoneNumber.trim()}` : "",
+    ].filter(Boolean);
+
+    return lines.join(", ");
   };
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setSuccessMessage("");
 
-    if (deliveryAddress.trim().length < 10) {
-      setError("Delivery address must be at least 10 characters.");
+    if (!fullName.trim()) {
+      setError("Full name is required.");
+      return;
+    }
+
+    if (streetAddress.trim().length < 5) {
+      setError("Please enter a valid street address.");
+      return;
+    }
+
+    if (!postcode.trim()) {
+      setError("Postcode is required.");
       return;
     }
 
     if (!cartSummary || cartSummary.item_count === 0) {
-      setError("Your basket is empty.");
+      setError("Your cart is empty.");
       return;
     }
 
     for (const producer of cartSummary.producers) {
-      const dateValue = producerDeliveryDates[String(producer.producer_id)];
-      if (!dateValue) {
-        setError(
-          `Please select a delivery date for producer ${
-            producer.producer_name || producer.producer_id
-          }.`
-        );
+      if (!producerDeliveryDates[String(producer.producer_id)]) {
+        setError("Please select a delivery date for each producer.");
         return;
       }
     }
 
-    const paymentValidationError = validateMockPayment();
-    if (paymentValidationError) {
-      setError(paymentValidationError);
+    const paymentError = validatePayment();
+    if (paymentError) {
+      setError(paymentError);
       return;
     }
 
-    const payload = {
-      delivery_address: deliveryAddress,
-      producer_delivery_dates: producerDeliveryDates,
-    };
+    const fullDeliveryAddress = buildDeliveryAddress();
 
     try {
       setSubmitting(true);
 
-      const response = await api.post("/api/orders/checkout/", payload);
-      const data = response.data;
-
-      setSuccessMessage("Order placed successfully.");
-      navigate("/orders", {
-        state: {
-          checkoutSuccess: true,
-          orderNumber: data?.order_number,
-        },
+      const res = await api.post("/api/orders/checkout/", {
+        delivery_address: fullDeliveryAddress,
+        producer_delivery_dates: producerDeliveryDates,
       });
+
+      setConfirmedCart(cartSummary);
+      setConfirmedAddress(fullDeliveryAddress);
+      setConfirmedName(fullName.trim());
+      setOrderNumber(res.data?.order_number || "Order created");
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || "Checkout failed.");
     } finally {
@@ -154,182 +176,297 @@ const Checkout = () => {
     return (
       <div style={pageStyle}>
         <h1 style={headingStyle}>Checkout</h1>
-        <p>Loading checkout details...</p>
+        <p style={mutedTextStyle}>Loading your checkout details...</p>
       </div>
     );
   }
 
-  if (error && !cartSummary) {
+  if (!loading && (!cartSummary || cartSummary.item_count === 0) && !orderNumber) {
     return (
       <div style={pageStyle}>
-        <h1 style={headingStyle}>Checkout</h1>
-        <div style={errorBoxStyle}>{error}</div>
+        <div style={emptyBoxStyle}>
+          <h1 style={headingStyle}>Checkout</h1>
+          <p style={mutedTextStyle}>Your cart is empty.</p>
+          <button onClick={() => navigate("/")} style={buttonStyle} type="button">
+            Go Shopping
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (orderNumber && confirmedCart) {
+    return (
+      <div style={pageStyle}>
+        <div style={confirmationCardStyle}>
+          <h1 style={headingStyle}>Order Confirmed 🎉</h1>
+          <p style={confirmationTextStyle}>
+            Thank you{confirmedName ? `, ${confirmedName}` : ""}. Your order has been placed
+            successfully.
+          </p>
+
+          <div style={confirmationInfoBoxStyle}>
+            <div style={summaryRowStyle}>
+              <span>Order number</span>
+              <strong>{orderNumber}</strong>
+            </div>
+            <div style={summaryRowStyle}>
+              <span>Total paid</span>
+              <strong>{formatPrice(confirmedCart.grand_total)}</strong>
+            </div>
+            <div style={summaryRowStyle}>
+              <span>Total items</span>
+              <strong>{confirmedCart.item_count}</strong>
+            </div>
+          </div>
+
+          <div style={confirmationSectionStyle}>
+            <h2 style={sectionHeadingStyle}>Delivery details</h2>
+            <p style={mutedTextStyle}>{confirmedAddress}</p>
+            <p style={deliveryNoteStyle}>
+              Your order will be ready within 48 hours. Delivery dates may vary slightly by producer.
+            </p>
+          </div>
+
+          <div style={confirmationSectionStyle}>
+            <h2 style={sectionHeadingStyle}>Items ordered</h2>
+
+            {confirmedCart.producers.map((producer) => (
+              <div key={producer.producer_id} style={confirmationProducerBoxStyle}>
+                <h3 style={producerTitleStyle}>
+                  {producer.producer_name || `Producer #${producer.producer_id}`}
+                </h3>
+                <p style={producerSubStyle}>
+                  Producer subtotal: {formatPrice(producer.producer_subtotal)}
+                </p>
+
+                <div style={confirmationItemsListStyle}>
+                  {producer.items.map((item) => (
+                    <div key={`${producer.producer_id}-${item.product_id}`} style={confirmationItemRowStyle}>
+                      <span>
+                        {item.product_name} × {item.quantity}
+                      </span>
+                      <strong>{formatPrice(item.line_total)}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={confirmationActionsStyle}>
+            <button onClick={() => navigate("/orders")} style={buttonStyle} type="button">
+              Go to Orders
+            </button>
+            <button onClick={() => navigate("/")} style={secondaryButtonStyle} type="button">
+              Continue Shopping
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div style={pageStyle}>
-      <div style={topSectionStyle}>
+      <div style={topBlockStyle}>
         <div>
           <h1 style={headingStyle}>Checkout</h1>
-          <p style={subTextStyle}>
-            Confirm your delivery details, choose producer delivery dates, and complete the mock payment step.
+          <p style={mutedTextStyle}>
+            Enter your delivery details, choose delivery dates, and complete the mock payment step.
           </p>
         </div>
       </div>
 
-      {successMessage && <div style={successBoxStyle}>{successMessage}</div>}
-      {error && <div style={errorBoxStyle}>{error}</div>}
+      {error && <div style={errorStyle}>{error}</div>}
 
-      <div style={layoutStyle}>
-        <form onSubmit={handleCheckout} style={leftColumnStyle}>
-          <section style={cardStyle}>
-            <h2 style={sectionTitleStyle}>1. Delivery Address</h2>
-            <label style={labelStyle}>Full delivery address</label>
-            <textarea
-              value={deliveryAddress}
-              onChange={(e) => setDeliveryAddress(e.target.value)}
-              placeholder="Enter your full delivery address"
-              style={textareaStyle}
-              rows={4}
-            />
-            <p style={hintStyle}>
-              Please provide a clear delivery address. Minimum length: 10 characters.
+      <div style={checkoutLayoutStyle}>
+        <form onSubmit={handleCheckout} style={formCardStyle}>
+          <div style={sectionBlockStyle}>
+            <h2 style={sectionHeadingStyle}>Delivery Details</h2>
+
+            <div style={inputGridStyle}>
+              <div style={fieldWrapStyle}>
+                <label style={labelStyle}>Full Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Utku Demirel"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={fieldWrapStyle}>
+                <label style={labelStyle}>Phone Number (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 07..."
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <div style={fieldWrapStyle}>
+              <label style={labelStyle}>Street Address</label>
+              <textarea
+                placeholder="House number, street name, area..."
+                value={streetAddress}
+                onChange={(e) => setStreetAddress(e.target.value)}
+                style={textareaStyle}
+              />
+            </div>
+
+            <div style={fieldWrapStyle}>
+              <label style={labelStyle}>Postcode</label>
+              <input
+                type="text"
+                placeholder="e.g. BS1 5AH"
+                value={postcode}
+                onChange={(e) => setPostcode(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div style={sectionBlockStyle}>
+            <h2 style={sectionHeadingStyle}>Delivery Preferences</h2>
+            <p style={helperTextStyle}>
+              Please choose a preferred delivery date for each producer. The earliest selectable date is{" "}
+              <strong>{minDate}</strong>.
             </p>
-          </section>
 
-          <section style={cardStyle}>
-            <h2 style={sectionTitleStyle}>2. Delivery Dates by Producer</h2>
-            <p style={hintStyle}>
-              Each producer requires at least 48 hours notice. Choose a delivery date for every producer.
-            </p>
-
-            {cartSummary?.producers?.map((producer) => (
-              <div key={producer.producer_id} style={producerBoxStyle}>
-                <div style={producerHeaderStyle}>
+            <div style={producerDatesWrapStyle}>
+              {cartSummary?.producers.map((producer) => (
+                <div key={producer.producer_id} style={producerDateCardStyle}>
                   <div>
-                    <h3 style={producerNameStyle}>
+                    <h3 style={producerDateTitleStyle}>
                       {producer.producer_name || `Producer #${producer.producer_id}`}
                     </h3>
                     <p style={producerSubStyle}>
                       Subtotal: {formatPrice(producer.producer_subtotal)}
                     </p>
                   </div>
-                  <div style={{ minWidth: 210 }}>
-                    <label style={labelStyle}>Delivery date</label>
-                    <input
-                      type="date"
-                      min={minDate}
-                      value={producerDeliveryDates[String(producer.producer_id)] || ""}
-                      onChange={(e) => handleProducerDateChange(producer.producer_id, e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-                </div>
 
-                <div style={itemsListStyle}>
-                  {producer.items.map((item) => (
-                    <div key={`${producer.producer_id}-${item.product_id}`} style={itemRowStyle}>
-                      <span>{item.product_name}</span>
-                      <span>
-                        {item.quantity} × {formatPrice(item.unit_price)}
-                      </span>
-                    </div>
-                  ))}
+                  <input
+                    type="date"
+                    min={minDate}
+                    value={producerDeliveryDates[String(producer.producer_id)] || ""}
+                    onChange={(e) =>
+                      handleProducerDateChange(producer.producer_id, e.target.value)
+                    }
+                    style={dateInputStyle}
+                  />
                 </div>
-              </div>
-            ))}
-          </section>
+              ))}
+            </div>
+          </div>
 
-          <section style={cardStyle}>
-            <h2 style={sectionTitleStyle}>3. Mock Payment</h2>
-            <p style={hintStyle}>
-              This is a simulated payment step for coursework purposes. No real card details are processed.
+          <div style={sectionBlockStyle}>
+            <h2 style={sectionHeadingStyle}>Mock Payment</h2>
+            <p style={helperTextStyle}>
+              This is a demo payment step for coursework purposes. No real payment will be processed.
             </p>
 
-            <div style={gridStyle}>
-              <div>
-                <label style={labelStyle}>Cardholder name</label>
-                <input
-                  type="text"
-                  value={cardName}
-                  onChange={(e) => setCardName(e.target.value)}
-                  placeholder="John Smith"
-                  style={inputStyle}
-                />
-              </div>
+            <div style={fieldWrapStyle}>
+              <label style={labelStyle}>Cardholder Name</label>
+              <input
+                type="text"
+                placeholder="Name on card"
+                value={cardName}
+                onChange={(e) => setCardName(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
 
-              <div>
-                <label style={labelStyle}>Card number</label>
-                <input
-                  type="text"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  placeholder="4242 4242 4242 4242"
-                  style={inputStyle}
-                />
-              </div>
+            <div style={fieldWrapStyle}>
+              <label style={labelStyle}>Card Number</label>
+              <input
+                type="text"
+                placeholder="1234 5678 9012 3456"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
 
-              <div>
+            <div style={inputGridStyle}>
+              <div style={fieldWrapStyle}>
                 <label style={labelStyle}>Expiry</label>
                 <input
                   type="text"
+                  placeholder="MM/YY"
                   value={expiry}
                   onChange={(e) => setExpiry(e.target.value)}
-                  placeholder="12/28"
                   style={inputStyle}
                 />
               </div>
 
-              <div>
+              <div style={fieldWrapStyle}>
                 <label style={labelStyle}>CVV</label>
                 <input
-                  type="text"
+                  type="password"
+                  placeholder="123"
                   value={cvv}
                   onChange={(e) => setCvv(e.target.value)}
-                  placeholder="123"
                   style={inputStyle}
                 />
               </div>
             </div>
-          </section>
+          </div>
 
-          <button type="submit" disabled={submitting} style={submitButtonStyle}>
-            {submitting ? "Placing order..." : "Place Order"}
+          <button disabled={submitting} style={buttonStyle} type="submit">
+            {submitting ? "Processing Order..." : "Place Order"}
           </button>
         </form>
 
-        <aside style={rightColumnStyle}>
-          <section style={summaryCardStyle}>
-            <h2 style={sectionTitleStyle}>Order Summary</h2>
+        <aside style={summaryBoxStyle}>
+          <h2 style={summaryTitleStyle}>Order Summary</h2>
 
-            <div style={summaryRowStyle}>
-              <span>Total items</span>
-              <strong>{cartSummary?.item_count || 0}</strong>
-            </div>
+          {cartSummary?.producers.map((producer) => (
+            <div key={producer.producer_id} style={summaryProducerBlockStyle}>
+              <h3 style={summaryProducerTitleStyle}>
+                {producer.producer_name || `Producer #${producer.producer_id}`}
+              </h3>
 
-            <div style={summaryRowStyle}>
-              <span>Producers</span>
-              <strong>{cartSummary?.producers?.length || 0}</strong>
-            </div>
+              {producer.items.map((item) => (
+                <div
+                  key={`${producer.producer_id}-${item.product_id}`}
+                  style={summaryItemRowStyle}
+                >
+                  <div>
+                    <div style={summaryItemNameStyle}>{item.product_name}</div>
+                    <div style={summaryItemMetaStyle}>Qty: {item.quantity}</div>
+                  </div>
+                  <strong>{formatPrice(item.line_total)}</strong>
+                </div>
+              ))}
 
-            <div style={dividerStyle} />
-
-            {cartSummary?.producers?.map((producer) => (
-              <div key={producer.producer_id} style={summaryProducerRowStyle}>
-                <span>{producer.producer_name || `Producer #${producer.producer_id}`}</span>
+              <div style={summaryProducerSubtotalStyle}>
+                <span>Producer subtotal</span>
                 <strong>{formatPrice(producer.producer_subtotal)}</strong>
               </div>
-            ))}
-
-            <div style={dividerStyle} />
-
-            <div style={grandTotalRowStyle}>
-              <span>Grand total</span>
-              <strong>{formatPrice(cartSummary?.grand_total || 0)}</strong>
             </div>
-          </section>
+          ))}
+
+          <div style={dividerStyle} />
+
+          <div style={summaryRowStyle}>
+            <span>Total items</span>
+            <strong>{cartSummary?.item_count || 0}</strong>
+          </div>
+
+          <div style={summaryRowStyle}>
+            <span>Producers</span>
+            <strong>{cartSummary?.producers.length || 0}</strong>
+          </div>
+
+          <div style={summaryTotalStyle}>
+            <span>Grand total</span>
+            <strong>{formatPrice(cartSummary?.grand_total || 0)}</strong>
+          </div>
         </aside>
       </div>
     </div>
@@ -342,158 +479,220 @@ const pageStyle: React.CSSProperties = {
   padding: "40px 20px",
 };
 
-const topSectionStyle: React.CSSProperties = {
+const topBlockStyle: React.CSSProperties = {
   marginBottom: "24px",
 };
 
-const layoutStyle: React.CSSProperties = {
+const checkoutLayoutStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "2fr 1fr",
   gap: "24px",
   alignItems: "start",
 };
 
-const leftColumnStyle: React.CSSProperties = {
+const formCardStyle: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "18px",
+  padding: "24px",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
   display: "flex",
   flexDirection: "column",
   gap: "20px",
 };
 
-const rightColumnStyle: React.CSSProperties = {
-  position: "sticky",
-  top: "100px",
+const sectionBlockStyle: React.CSSProperties = {
+  border: "1px solid #eef2f7",
+  borderRadius: "14px",
+  padding: "18px",
+  background: "#fcfcfc",
 };
 
-const cardStyle: React.CSSProperties = {
-  backgroundColor: "#ffffff",
-  borderRadius: "16px",
-  padding: "24px",
-  border: "1px solid #e5e7eb",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
+const inputGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "14px",
 };
 
-const summaryCardStyle: React.CSSProperties = {
-  backgroundColor: "#ffffff",
-  borderRadius: "16px",
-  padding: "24px",
-  border: "1px solid #e5e7eb",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
-};
-
-const headingStyle: React.CSSProperties = {
-  fontSize: "36px",
-  fontWeight: 700,
-  marginBottom: "8px",
-  color: "#163A2D",
-};
-
-const subTextStyle: React.CSSProperties = {
-  color: "#6b7280",
-  margin: 0,
-};
-
-const sectionTitleStyle: React.CSSProperties = {
-  fontSize: "22px",
-  fontWeight: 700,
-  marginTop: 0,
-  marginBottom: "16px",
-  color: "#163A2D",
+const fieldWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
 };
 
 const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: "8px",
+  fontWeight: 600,
+  color: "#163A2D",
   fontSize: "14px",
+};
+
+const inputStyle: React.CSSProperties = {
+  padding: "12px 14px",
+  borderRadius: "10px",
+  border: "1px solid #d1d5db",
+  fontSize: "14px",
+  outline: "none",
+};
+
+const textareaStyle: React.CSSProperties = {
+  ...inputStyle,
+  minHeight: "100px",
+  resize: "vertical",
+};
+
+const dateInputStyle: React.CSSProperties = {
+  padding: "10px 12px",
+  borderRadius: "10px",
+  border: "1px solid #d1d5db",
+  fontSize: "14px",
+};
+
+const buttonStyle: React.CSSProperties = {
+  padding: "14px 18px",
+  background: "#2d6a4f",
+  color: "#fff",
+  border: "none",
+  borderRadius: "12px",
+  cursor: "pointer",
+  fontWeight: 700,
+  fontSize: "15px",
+};
+
+const secondaryButtonStyle: React.CSSProperties = {
+  padding: "12px 16px",
+  borderRadius: "12px",
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  cursor: "pointer",
   fontWeight: 600,
   color: "#374151",
 };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 14px",
-  borderRadius: "12px",
-  border: "1px solid #d1d5db",
-  fontSize: "14px",
-  outline: "none",
-  boxSizing: "border-box",
+const headingStyle: React.CSSProperties = {
+  fontSize: "38px",
+  fontWeight: 700,
+  margin: "0 0 8px 0",
+  color: "#163A2D",
 };
 
-const textareaStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 14px",
-  borderRadius: "12px",
-  border: "1px solid #d1d5db",
-  fontSize: "14px",
-  outline: "none",
-  resize: "vertical",
-  boxSizing: "border-box",
+const sectionHeadingStyle: React.CSSProperties = {
+  fontSize: "22px",
+  fontWeight: 700,
+  margin: "0 0 14px 0",
+  color: "#163A2D",
 };
 
-const hintStyle: React.CSSProperties = {
-  marginTop: "10px",
-  marginBottom: 0,
+const mutedTextStyle: React.CSSProperties = {
   color: "#6b7280",
+  margin: 0,
+  lineHeight: 1.6,
+};
+
+const helperTextStyle: React.CSSProperties = {
+  color: "#6b7280",
+  margin: "0 0 14px 0",
   fontSize: "14px",
+  lineHeight: 1.5,
 };
 
-const gridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "16px",
-};
-
-const producerBoxStyle: React.CSSProperties = {
-  border: "1px solid #e5e7eb",
-  borderRadius: "14px",
-  padding: "16px",
+const errorStyle: React.CSSProperties = {
+  background: "#fef2f2",
+  color: "#b91c1c",
+  border: "1px solid #fecaca",
+  padding: "12px 14px",
   marginBottom: "16px",
-  backgroundColor: "#fafdfb",
+  borderRadius: "12px",
 };
 
-const producerHeaderStyle: React.CSSProperties = {
+const producerDatesWrapStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+};
+
+const producerDateCardStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "start",
+  alignItems: "center",
   gap: "16px",
-  marginBottom: "14px",
+  border: "1px solid #e5e7eb",
+  borderRadius: "12px",
+  padding: "14px 16px",
+  background: "#fff",
 };
 
-const producerNameStyle: React.CSSProperties = {
-  margin: 0,
+const producerDateTitleStyle: React.CSSProperties = {
+  margin: "0 0 4px 0",
+  fontSize: "17px",
+  color: "#163A2D",
+};
+
+const producerTitleStyle: React.CSSProperties = {
+  margin: "0 0 4px 0",
   fontSize: "18px",
   color: "#163A2D",
 };
 
 const producerSubStyle: React.CSSProperties = {
-  margin: "6px 0 0 0",
+  margin: 0,
   color: "#6b7280",
   fontSize: "14px",
 };
 
-const itemsListStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "10px",
+const summaryBoxStyle: React.CSSProperties = {
+  backgroundColor: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "18px",
+  padding: "24px",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
+  position: "sticky",
+  top: "100px",
 };
 
-const itemRowStyle: React.CSSProperties = {
+const summaryTitleStyle: React.CSSProperties = {
+  marginTop: 0,
+  marginBottom: "18px",
+  color: "#163A2D",
+  fontSize: "28px",
+};
+
+const summaryProducerBlockStyle: React.CSSProperties = {
+  paddingBottom: "16px",
+  marginBottom: "16px",
+  borderBottom: "1px solid #eef2f7",
+};
+
+const summaryProducerTitleStyle: React.CSSProperties = {
+  margin: "0 0 10px 0",
+  fontSize: "18px",
+  color: "#163A2D",
+};
+
+const summaryItemRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   gap: "12px",
-  padding: "10px 0",
-  borderBottom: "1px solid #eef2f7",
-  fontSize: "14px",
+  marginBottom: "10px",
 };
 
-const submitButtonStyle: React.CSSProperties = {
-  padding: "14px 20px",
-  borderRadius: "12px",
-  border: "none",
-  backgroundColor: "#2d6a4f",
-  color: "#fff",
-  fontWeight: 700,
-  fontSize: "15px",
-  cursor: "pointer",
+const summaryItemNameStyle: React.CSSProperties = {
+  fontWeight: 600,
+  color: "#111827",
+};
+
+const summaryItemMetaStyle: React.CSSProperties = {
+  fontSize: "13px",
+  color: "#6b7280",
+  marginTop: "3px",
+};
+
+const summaryProducerSubtotalStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  marginTop: "10px",
+  color: "#374151",
+  fontSize: "14px",
+  fontWeight: 600,
 };
 
 const summaryRowStyle: React.CSSProperties = {
@@ -503,21 +702,13 @@ const summaryRowStyle: React.CSSProperties = {
   color: "#374151",
 };
 
-const summaryProducerRowStyle: React.CSSProperties = {
+const summaryTotalStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  marginBottom: "10px",
-  gap: "12px",
-  fontSize: "14px",
-  color: "#374151",
-};
-
-const grandTotalRowStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  fontSize: "18px",
+  fontSize: "22px",
   fontWeight: 700,
   color: "#163A2D",
+  marginTop: "18px",
 };
 
 const dividerStyle: React.CSSProperties = {
@@ -526,22 +717,76 @@ const dividerStyle: React.CSSProperties = {
   margin: "16px 0",
 };
 
-const errorBoxStyle: React.CSSProperties = {
-  backgroundColor: "#fef2f2",
-  color: "#b91c1c",
-  border: "1px solid #fecaca",
-  padding: "14px 16px",
-  borderRadius: "12px",
-  marginBottom: "16px",
+const emptyBoxStyle: React.CSSProperties = {
+  backgroundColor: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "16px",
+  padding: "32px",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
 };
 
-const successBoxStyle: React.CSSProperties = {
-  backgroundColor: "#ecfdf5",
+const confirmationCardStyle: React.CSSProperties = {
+  backgroundColor: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "18px",
+  padding: "28px",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
+};
+
+const confirmationTextStyle: React.CSSProperties = {
+  color: "#374151",
+  fontSize: "16px",
+  lineHeight: 1.6,
+  marginTop: 0,
+};
+
+const confirmationInfoBoxStyle: React.CSSProperties = {
+  background: "#f9fafb",
+  border: "1px solid #e5e7eb",
+  borderRadius: "14px",
+  padding: "18px",
+  margin: "20px 0",
+};
+
+const confirmationSectionStyle: React.CSSProperties = {
+  marginTop: "24px",
+};
+
+const deliveryNoteStyle: React.CSSProperties = {
+  marginTop: "10px",
   color: "#166534",
+  background: "#ecfdf3",
   border: "1px solid #bbf7d0",
-  padding: "14px 16px",
   borderRadius: "12px",
-  marginBottom: "16px",
+  padding: "12px 14px",
+};
+
+const confirmationProducerBoxStyle: React.CSSProperties = {
+  border: "1px solid #e5e7eb",
+  borderRadius: "14px",
+  padding: "16px",
+  marginBottom: "14px",
+  background: "#fcfcfc",
+};
+
+const confirmationItemsListStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "10px",
+  marginTop: "14px",
+};
+
+const confirmationItemRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: "12px",
+};
+
+const confirmationActionsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "12px",
+  marginTop: "24px",
+  flexWrap: "wrap",
 };
 
 export default Checkout;

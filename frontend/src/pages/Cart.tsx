@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router";
 import api from "../api";
 
 type CartItem = {
+  id: number;
   product_id: number;
   product_name: string;
   quantity: number;
@@ -33,6 +34,7 @@ const Cart = () => {
 
   const fetchCart = async () => {
     try {
+      setLoading(true);
       const response = await api.get<CartSummary>("/api/cart/");
       setCart(response.data);
       setError("");
@@ -52,9 +54,28 @@ const Cart = () => {
     return `£${num.toFixed(2)}`;
   };
 
+  const removeItem = async (productId: number, fallbackMessage = "Failed to remove item.") => {
+    try {
+      setUpdatingId(productId);
+      setError("");
+      await api.delete(`/api/cart/items/${productId}/`);
+      await fetchCart();
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err?.message || fallbackMessage);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const updateQuantity = async (productId: number, newQuantity: number) => {
     try {
       setUpdatingId(productId);
+      setError("");
+
+      if (newQuantity <= 0) {
+        await removeItem(productId, "Failed to remove item.");
+        return;
+      }
 
       await api.patch(`/api/cart/items/${productId}/`, {
         quantity: newQuantity,
@@ -68,26 +89,15 @@ const Cart = () => {
     }
   };
 
-  const removeItem = async (productId: number) => {
-    try {
-      setUpdatingId(productId);
-
-      await api.delete(`/api/cart/items/${productId}/`);
-
-      await fetchCart();
-    } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || "Failed to remove item.");
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
   const clearCart = async () => {
     try {
+      setLoading(true);
+      setError("");
       await api.delete("/api/cart/");
       await fetchCart();
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || "Failed to clear cart.");
+      setLoading(false);
     }
   };
 
@@ -109,7 +119,7 @@ const Cart = () => {
         </div>
 
         {cart && cart.item_count > 0 && (
-          <button onClick={clearCart} style={secondaryButtonStyle}>
+          <button onClick={clearCart} style={secondaryButtonStyle} type="button">
             Clear Basket
           </button>
         )}
@@ -141,7 +151,7 @@ const Cart = () => {
 
                 <div style={itemsWrapStyle}>
                   {producer.items.map((item) => (
-                    <div key={item.product_id} style={itemRowStyle}>
+                    <div key={item.id} style={itemRowStyle}>
                       <div style={{ flex: 1 }}>
                         <h3 style={itemNameStyle}>{item.product_name}</h3>
                         <p style={itemMetaStyle}>Unit price: {formatPrice(item.unit_price)}</p>
@@ -154,6 +164,7 @@ const Cart = () => {
                             onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
                             disabled={updatingId === item.product_id}
                             style={qtyButtonStyle}
+                            type="button"
                           >
                             -
                           </button>
@@ -164,6 +175,7 @@ const Cart = () => {
                             onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
                             disabled={updatingId === item.product_id}
                             style={qtyButtonStyle}
+                            type="button"
                           >
                             +
                           </button>
@@ -173,6 +185,7 @@ const Cart = () => {
                           onClick={() => removeItem(item.product_id)}
                           disabled={updatingId === item.product_id}
                           style={removeButtonStyle}
+                          type="button"
                         >
                           Remove
                         </button>
@@ -204,7 +217,11 @@ const Cart = () => {
               <strong>{formatPrice(cart.grand_total)}</strong>
             </div>
 
-            <button onClick={() => navigate("/checkout")} style={checkoutButtonStyle}>
+            <button
+              onClick={() => navigate("/checkout")}
+              style={checkoutButtonStyle}
+              type="button"
+            >
               Proceed to Checkout
             </button>
           </aside>
@@ -225,6 +242,7 @@ const topRowStyle: React.CSSProperties = {
   justifyContent: "space-between",
   alignItems: "center",
   marginBottom: "24px",
+  gap: "16px",
 };
 
 const headingStyle: React.CSSProperties = {

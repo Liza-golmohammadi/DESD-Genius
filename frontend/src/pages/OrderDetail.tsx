@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import api from "../api";
 
 type OrderLineItem = {
   id?: number;
@@ -42,18 +43,11 @@ const OrderDetail = () => {
 
   const [order, setOrder] = useState<OrderDetailData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reordering, setReordering] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchOrderDetail = async () => {
-      const token = localStorage.getItem("token") || localStorage.getItem("access");
-
-      if (!token) {
-        setError("You must be logged in to view this order.");
-        setLoading(false);
-        return;
-      }
-
       if (!orderNumber) {
         setError("Order number is missing.");
         setLoading(false);
@@ -61,27 +55,12 @@ const OrderDetail = () => {
       }
 
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/orders/${orderNumber}/`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || "Failed to fetch order details.");
-        }
-
-        const data = await response.json();
-        setOrder(data);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("Something went wrong while loading the order.");
-        }
+        setLoading(true);
+        const response = await api.get<OrderDetailData>(`/api/orders/${orderNumber}/`);
+        setOrder(response.data);
+        setError("");
+      } catch (err: any) {
+        setError(err?.response?.data?.error || err?.message || "Failed to fetch order details.");
       } finally {
         setLoading(false);
       }
@@ -90,7 +69,22 @@ const OrderDetail = () => {
     fetchOrderDetail();
   }, [orderNumber]);
 
-  const getStatusStyle = (status: string) => {
+  const handleReorder = async () => {
+    if (!orderNumber) return;
+
+    try {
+      setReordering(true);
+      setError("");
+      await api.post(`/api/orders/${orderNumber}/reorder/`);
+      navigate("/cart");
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err?.message || "Failed to reorder items.");
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const getStatusStyle = (status: string): React.CSSProperties => {
     const normalized = status.toLowerCase();
 
     if (normalized === "pending") {
@@ -100,14 +94,14 @@ const OrderDetail = () => {
       };
     }
 
-    if (normalized === "processing") {
+    if (normalized === "confirmed") {
       return {
         backgroundColor: "#dbeafe",
         color: "#1d4ed8",
       };
     }
 
-    if (normalized === "shipped") {
+    if (normalized === "ready") {
       return {
         backgroundColor: "#fef3c7",
         color: "#b45309",
@@ -121,10 +115,22 @@ const OrderDetail = () => {
       };
     }
 
+    if (normalized === "cancelled") {
+      return {
+        backgroundColor: "#fee2e2",
+        color: "#b91c1c",
+      };
+    }
+
     return {
       backgroundColor: "#f3f4f6",
       color: "#111827",
     };
+  };
+
+  const formatStatus = (status?: string) => {
+    if (!status) return "Unknown";
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
   };
 
   const formatDate = (dateString?: string | null) => {
@@ -200,7 +206,7 @@ const OrderDetail = () => {
   if (loading) {
     return (
       <div style={pageStyle}>
-        <button style={backButtonStyle} onClick={() => navigate("/orders")}>
+        <button style={backButtonStyle} onClick={() => navigate("/orders")} type="button">
           ← Back to Orders
         </button>
         <h1 style={headingStyle}>Order Details</h1>
@@ -209,10 +215,10 @@ const OrderDetail = () => {
     );
   }
 
-  if (error) {
+  if (error && !order) {
     return (
       <div style={pageStyle}>
-        <button style={backButtonStyle} onClick={() => navigate("/orders")}>
+        <button style={backButtonStyle} onClick={() => navigate("/orders")} type="button">
           ← Back to Orders
         </button>
         <h1 style={headingStyle}>Order Details</h1>
@@ -224,7 +230,7 @@ const OrderDetail = () => {
   if (!order) {
     return (
       <div style={pageStyle}>
-        <button style={backButtonStyle} onClick={() => navigate("/orders")}>
+        <button style={backButtonStyle} onClick={() => navigate("/orders")} type="button">
           ← Back to Orders
         </button>
         <h1 style={headingStyle}>Order Details</h1>
@@ -235,9 +241,11 @@ const OrderDetail = () => {
 
   return (
     <div style={pageStyle}>
-      <button style={backButtonStyle} onClick={() => navigate("/orders")}>
+      <button style={backButtonStyle} onClick={() => navigate("/orders")} type="button">
         ← Back to Orders
       </button>
+
+      {error && <div style={errorBoxStyle}>{error}</div>}
 
       <div style={heroCardStyle}>
         <div>
@@ -245,7 +253,7 @@ const OrderDetail = () => {
           <p style={subTextStyle}>Placed on {formatDateTime(order.created_at)}</p>
         </div>
 
-        <div style={{ textAlign: "right" }}>
+        <div style={heroRightStyle}>
           <div style={{ marginBottom: 10 }}>
             <span
               style={{
@@ -253,11 +261,25 @@ const OrderDetail = () => {
                 ...getStatusStyle(order.status),
               }}
             >
-              {order.status}
+              {formatStatus(order.status)}
             </span>
           </div>
+
           <div style={totalAmountStyle}>{formatPrice(order.total_amount)}</div>
           <div style={smallMutedStyle}>Total order amount</div>
+
+          <button
+            onClick={handleReorder}
+            disabled={reordering}
+            style={{
+              ...reorderButtonStyle,
+              opacity: reordering ? 0.7 : 1,
+              cursor: reordering ? "not-allowed" : "pointer",
+            }}
+            type="button"
+          >
+            {reordering ? "Reordering..." : "Reorder"}
+          </button>
         </div>
       </div>
 
@@ -269,18 +291,22 @@ const OrderDetail = () => {
 
         <div style={infoCardStyle}>
           <h3 style={sectionTitleStyle}>Order Summary</h3>
+
           <div style={summaryRowStyle}>
             <span style={summaryLabelStyle}>Order Number</span>
             <span style={summaryValueStyle}>{order.order_number}</span>
           </div>
+
           <div style={summaryRowStyle}>
             <span style={summaryLabelStyle}>Created</span>
             <span style={summaryValueStyle}>{formatDateTime(order.created_at)}</span>
           </div>
+
           <div style={summaryRowStyle}>
             <span style={summaryLabelStyle}>Status</span>
-            <span style={summaryValueStyle}>{order.status}</span>
+            <span style={summaryValueStyle}>{formatStatus(order.status)}</span>
           </div>
+
           <div style={summaryRowStyle}>
             <span style={summaryLabelStyle}>Producer Groups</span>
             <span style={summaryValueStyle}>{order.producer_orders?.length || 0}</span>
@@ -310,7 +336,7 @@ const OrderDetail = () => {
                     </p>
                   </div>
 
-                  <div style={{ textAlign: "right" }}>
+                  <div style={producerHeaderRightStyle}>
                     {producerOrder.status && (
                       <div style={{ marginBottom: 8 }}>
                         <span
@@ -319,10 +345,11 @@ const OrderDetail = () => {
                             ...getStatusStyle(producerOrder.status),
                           }}
                         >
-                          {producerOrder.status}
+                          {formatStatus(producerOrder.status)}
                         </span>
                       </div>
                     )}
+
                     <div style={producerSubtotalStyle}>
                       {formatPrice(getProducerSubtotal(producerOrder))}
                     </div>
@@ -418,6 +445,13 @@ const heroCardStyle: React.CSSProperties = {
   flexWrap: "wrap",
 };
 
+const heroRightStyle: React.CSSProperties = {
+  textAlign: "right",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-end",
+};
+
 const badgeStyle: React.CSSProperties = {
   display: "inline-block",
   padding: "6px 12px",
@@ -436,6 +470,17 @@ const totalAmountStyle: React.CSSProperties = {
 const smallMutedStyle: React.CSSProperties = {
   fontSize: "13px",
   color: "#6b7280",
+};
+
+const reorderButtonStyle: React.CSSProperties = {
+  marginTop: "16px",
+  padding: "12px 18px",
+  borderRadius: "12px",
+  border: "none",
+  backgroundColor: "#2d6a4f",
+  color: "#ffffff",
+  fontWeight: 700,
+  fontSize: "14px",
 };
 
 const infoGridStyle: React.CSSProperties = {
@@ -517,6 +562,10 @@ const producerHeaderStyle: React.CSSProperties = {
   flexWrap: "wrap",
 };
 
+const producerHeaderRightStyle: React.CSSProperties = {
+  textAlign: "right",
+};
+
 const producerNameStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "22px",
@@ -580,6 +629,7 @@ const errorBoxStyle: React.CSSProperties = {
   border: "1px solid #fecaca",
   padding: "16px",
   borderRadius: "12px",
+  marginBottom: "16px",
 };
 
 export default OrderDetail;

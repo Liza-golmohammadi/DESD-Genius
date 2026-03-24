@@ -1,6 +1,4 @@
 from django.db import models
-
-from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.utils import timezone
@@ -37,7 +35,12 @@ class Product(models.Model):
 
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     unit = models.CharField(max_length=50, default="unit")
+
+    # Eski URL alanını koruyoruz
     image_url = models.URLField(blank=True)
+
+    # Yeni upload alanı
+    image = models.ImageField(upload_to="products/", blank=True, null=True)
 
     stock_quantity = models.IntegerField(validators=[MinValueValidator(0)])
     low_stock_threshold = models.IntegerField(default=5, validators=[MinValueValidator(0)])
@@ -104,6 +107,12 @@ class Product(models.Model):
     @property
     def is_low_stock(self) -> bool:
         return self.stock_quantity <= self.low_stock_threshold
+
+    @property
+    def image_source(self):
+        if self.image:
+            return self.image.url
+        return self.image_url
 
     def is_orderable(self) -> bool:
         return self.is_available and self.stock_quantity > 0 and self.is_in_season

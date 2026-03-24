@@ -15,6 +15,7 @@ type Product = {
   price: string | number;
   unit: string;
   image_url: string | null;
+  image_source: string | null;
   stock_quantity: number;
   is_available: boolean;
   organic_certified: boolean;
@@ -49,6 +50,12 @@ function formatPrice(value: string | number) {
   return `£${num.toFixed(2)}`;
 }
 
+function resolveImageUrl(url: string | null) {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `http://127.0.0.1:8000${url}`;
+}
+
 // ── Product card ─────────────────────────────────────────────────────────────
 function ProductCard({
   product,
@@ -60,6 +67,7 @@ function ProductCard({
   adding: boolean;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const imageUrl = resolveImageUrl(product.image_source);
 
   return (
     <div
@@ -80,9 +88,9 @@ function ProductCard({
       <div style={{ position: "relative", height: 200, background: "#e8f5e9", overflow: "hidden" }}>
         <img
           src={
-            imgFailed || !product.image_url
+            imgFailed || !imageUrl
               ? `https://picsum.photos/seed/${product.id}/500/300`
-              : product.image_url
+              : imageUrl
           }
           alt={product.name}
           onError={() => setImgFailed(true)}

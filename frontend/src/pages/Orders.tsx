@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import api from "../api";
+
+type ProducerOrder = {
+  id?: number;
+  items?: unknown[];
+};
 
 type OrderItem = {
   id?: number;
@@ -7,7 +13,7 @@ type OrderItem = {
   status: string;
   total_amount: string | number;
   created_at: string;
-  producer_orders?: unknown[];
+  producer_orders?: ProducerOrder[];
 };
 
 const Orders = () => {
@@ -18,36 +24,14 @@ const Orders = () => {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      const token = localStorage.getItem("token") || localStorage.getItem("access");
-
-      if (!token) {
-        setError("You must be logged in to view your orders.");
-        setLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/orders/", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || "Failed to fetch orders.");
-        }
-
-        const data = await response.json();
+        setLoading(true);
+        const response = await api.get<OrderItem[]>("/api/orders/");
+        const data = response.data;
         setOrders(Array.isArray(data) ? data : []);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("Something went wrong while loading orders.");
-        }
+        setError("");
+      } catch (err: any) {
+        setError(err?.response?.data?.error || err?.message || "Failed to fetch orders.");
       } finally {
         setLoading(false);
       }
@@ -56,7 +40,7 @@ const Orders = () => {
     fetchOrders();
   }, []);
 
-  const getStatusStyle = (status: string) => {
+  const getStatusStyle = (status: string): React.CSSProperties => {
     const normalized = status.toLowerCase();
 
     if (normalized === "pending") {
@@ -66,14 +50,14 @@ const Orders = () => {
       };
     }
 
-    if (normalized === "processing") {
+    if (normalized === "confirmed") {
       return {
         backgroundColor: "#dbeafe",
         color: "#1d4ed8",
       };
     }
 
-    if (normalized === "shipped") {
+    if (normalized === "ready") {
       return {
         backgroundColor: "#fef3c7",
         color: "#b45309",
@@ -87,10 +71,22 @@ const Orders = () => {
       };
     }
 
+    if (normalized === "cancelled") {
+      return {
+        backgroundColor: "#fee2e2",
+        color: "#b91c1c",
+      };
+    }
+
     return {
       backgroundColor: "#f3f4f6",
       color: "#111827",
     };
+  };
+
+  const formatStatus = (status: string) => {
+    if (!status) return "Unknown";
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
   };
 
   const formatDate = (dateString: string) => {
@@ -105,6 +101,17 @@ const Orders = () => {
   const formatPrice = (value: string | number) => {
     const numericValue = typeof value === "string" ? parseFloat(value) : value;
     return `£${numericValue.toFixed(2)}`;
+  };
+
+  const getItemCount = (order: OrderItem) => {
+    if (!order.producer_orders || !Array.isArray(order.producer_orders)) {
+      return 0;
+    }
+
+    return order.producer_orders.reduce((total, producerOrder) => {
+      const items = Array.isArray(producerOrder.items) ? producerOrder.items.length : 0;
+      return total + items;
+    }, 0);
   };
 
   if (loading) {
@@ -155,7 +162,7 @@ const Orders = () => {
             </thead>
             <tbody>
               {orders.map((order) => {
-                const itemCount = order.producer_orders ? order.producer_orders.length : 0;
+                const itemCount = getItemCount(order);
 
                 return (
                   <tr
@@ -174,7 +181,7 @@ const Orders = () => {
                           ...getStatusStyle(order.status),
                         }}
                       >
-                        {order.status}
+                        {formatStatus(order.status)}
                       </span>
                     </td>
                   </tr>

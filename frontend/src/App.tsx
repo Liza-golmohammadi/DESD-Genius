@@ -143,7 +143,6 @@ function Layout() {
     <>
       <div style={headerWrap}>
         <div style={headerInner}>
-          {/* LEFT */}
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             <NavLink to="/" style={brand}>
               BRISTOL FOOD NETWORK
@@ -177,14 +176,14 @@ function Layout() {
                 </>
               )}
 
-              <NavLink to="/user" style={pill}>
-                User
-              </NavLink>
-    
+              {isAuthed && (
+                <NavLink to="/user" style={pill}>
+                  User
+                </NavLink>
+              )}
             </nav>
           </div>
 
-          {/* SEARCH */}
           <form onSubmit={handleSearch} style={searchFormStyle}>
             <input
               value={searchInput}
@@ -197,7 +196,6 @@ function Layout() {
             </button>
           </form>
 
-          {/* RIGHT */}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {isAuthed && user?.role === "customer" && (
               <NavLink to="/cart" style={{ display: "flex", alignItems: "center" }}>
@@ -277,6 +275,7 @@ function App() {
             </AuthGate>
           }
         />
+
         <Route
           path="/login"
           element={
@@ -285,6 +284,7 @@ function App() {
             </AuthGate>
           }
         />
+
         <Route path="/logout" element={<Logout />} />
 
         <Route
@@ -304,6 +304,7 @@ function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/producers/:id"
           element={
@@ -313,12 +314,10 @@ function App() {
           }
         />
 
-        {/* PRODUCER */}
         <Route element={<ProtectedRoute allowedRoles={["producer"]} />}>
           <Route path="/producer/dashboard" element={<ProducerDashboard />} />
         </Route>
 
-        {/* CUSTOMER */}
         <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
           <Route path="/cart" element={<Cart />} />
           <Route path="/orders" element={<Orders />} />
@@ -326,7 +325,6 @@ function App() {
           <Route path="/checkout" element={<Checkout />} />
         </Route>
 
-        {/* ADMIN */}
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
