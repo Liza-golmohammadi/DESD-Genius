@@ -292,11 +292,11 @@ export default function ProducerDashboard() {
   async function loadProfile() {
     setProfileLoading(true);
     try {
-      // ✅ use /accounts/auth/me/ instead of /accounts/producer/me/
+
       const res = await api.get<ProducerMe>("/accounts/auth/user/me/");
       setProfile(res.data);
       setUser(res.data as any);
-      // ✅ read from producer_profile nested object
+
       setStoreName(res.data.producer_profile?.store_name ?? "");
       setStoreDescription(res.data.producer_profile?.store_description ?? "");
       setStoreContact(res.data.producer_profile?.store_contact ?? "");
@@ -346,12 +346,12 @@ export default function ProducerDashboard() {
     setProfileMsg(null);
     setProfileErr(null);
     try {
-      // ✅ use /accounts/auth/me/ with nested producer_profile
+      
       await api.patch("/accounts/auth/user/me/", {
         producer_profile: {
           store_name: storeName,
-          store_description: storeDescription,   // ✅ was: description
-          store_contact: storeContact,            // ✅ was: contact_info
+          store_description: storeDescription,   
+          store_contact: storeContact,           
         },
       });
       await loadProfile();
@@ -399,7 +399,7 @@ export default function ProducerDashboard() {
             <div>
               <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, marginBottom: 2 }}>Producer Dashboard</div>
               <h1 style={{ color: "#fff", margin: 0, fontSize: 24, fontWeight: 800 }}>
-                {/* ✅ read from producer_profile.store_name */}
+                
                 {profile?.producer_profile?.store_name || `${profile?.first_name} ${profile?.last_name}`.trim() || "Your Store"}
               </h1>
               <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 2 }}>
@@ -606,7 +606,6 @@ export default function ProducerDashboard() {
                   )}
                 </div>
 
-                {/* Store description — editable, ✅ was: description */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>Store Description</label>
                   {editMode ? (
@@ -616,7 +615,7 @@ export default function ProducerDashboard() {
                   )}
                 </div>
 
-                {/* Store contact — editable, ✅ was: contact_info */}
+
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>Store Contact</label>
                   {editMode ? (
