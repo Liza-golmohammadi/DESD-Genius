@@ -8,9 +8,10 @@ type Producer = {
   first_name: string;
   last_name: string;
   store_name: string | null;
-  description: string | null;
-  contact_info: string | null;
-  created_at: string;
+  store_description: string | null;
+  store_contact: string | null;
+  store_address: string | null;
+  store_created_at: string;
 };
 
 export default function Producers() {
@@ -65,11 +66,11 @@ export default function Producers() {
                 p.email}
             </Link>
 
-            {p.description && (
-              <p style={{ marginTop: 8, marginBottom: 0 }}>{p.description}</p>
+            {p.store_description && (
+              <p style={{ marginTop: 8, marginBottom: 0 }}>{p.store_description}</p>
             )}
 
-            {p.contact_info && (
+            {p.store_contact && (
               <p
                 style={{
                   marginTop: 8,
@@ -79,7 +80,7 @@ export default function Producers() {
                   whiteSpace: "pre-line",
                 }}
               >
-                {p.contact_info}
+                {p.store_contact}
               </p>
             )}
           </div>

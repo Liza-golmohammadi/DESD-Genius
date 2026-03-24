@@ -8,9 +8,10 @@ type Producer = {
   first_name: string;
   last_name: string;
   store_name: string | null;
-  description: string | null;
-  created_at: string;
-  contact_info: string | null;
+  store_description: string | null;
+  store_created_at: string;
+  store_contact: string | null;
+  store_address: string | null;
 };
 
 export default function ProducerDetail() {
@@ -23,8 +24,6 @@ export default function ProducerDetail() {
     (async () => {
       try {
         setError(null);
-        console.log("ID:", id);
-
         const res = await api.get<Producer>(`/accounts/producers/${id}/`);
         setItem(res.data);
       } catch (e: any) {
@@ -47,19 +46,19 @@ export default function ProducerDetail() {
         {item.store_name || `${item.first_name} ${item.last_name}`.trim() || item.email}
       </h1>
 
-      {item.description && <p style={{ marginTop: 12 }}>{item.description}</p>}
+      {item.store_description && <p style={{ marginTop: 12 }}>{item.store_description}</p>}
 
-      {item.contact_info && (
+      {item.store_contact && (
         <div style={{ marginTop: 12 }}>
           <div style={{ fontWeight: 700 }}>Contact details</div>
           <div style={{ whiteSpace: "pre-line", opacity: 0.85 }}>
-            {item.contact_info}
+            {item.store_contact}
           </div>
         </div>
       )}
 
       <div style={{ marginTop: 16, opacity: 0.7, fontSize: 13 }}>
-        Created: {new Date(item.created_at).toLocaleString()}
+        Joined Since: {new Date(item.store_created_at).toLocaleString()}
       </div>
     </div>
   );

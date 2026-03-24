@@ -29,6 +29,8 @@ class User(AbstractUser):
 		RESTAURANT = 'restaurant', 'Restaurant'
           
 	email = models.EmailField(unique=True)
+	phone_number = models.CharField(max_length=20, blank=True, default="")
+	address = models.CharField(max_length=100, blank=True, default="")
 	USERNAME_FIELD = 'email'
 	REQUIRED_FIELDS = ['first_name', 'last_name']
 
@@ -57,7 +59,9 @@ class ProducerProfile(models.Model):
     store_name = models.CharField(max_length=255)
     store_description = models.TextField(blank=True)
     store_created_at = models.DateTimeField(auto_now_add=True)
+    store_address = models.TextField(blank=True, default="")
     store_contact = models.TextField(blank=True, default="")
+    
 
     def __str__(self):
         return self.store_name

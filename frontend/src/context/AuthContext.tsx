@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
       localStorage.setItem("access", token.data.access);
       localStorage.setItem("refresh", token.data.refresh);
 
-      const res = await api.get<User>("/accounts/auth/user/me/");
+      const res = await api.get<User>("/accounts/auth/me/");
       setUser(res.data);
       console.log(res.data)
       if (res.data.producer_profile) {
@@ -113,7 +113,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
         return;
       }
       try {
-        const res = await api.get<User>("/accounts/auth/user/me/");
+        const res = await api.get<User>("/accounts/auth/me/");
         setUser(res.data);
       } catch {
         logoutUser();

@@ -7,6 +7,7 @@ type ProducerProfile = {
   store_name: string;
   store_description: string;
   store_contact: string;
+  store_address: string | null;
   store_created_at: string;
 };
 
@@ -15,6 +16,8 @@ type UserProfile = {
   email: string;
   first_name: string;
   last_name: string;
+  phone_number: string | null;
+  address: string | null;
   customer_role: string | null;
   is_producer: boolean;
   accepted_terms_at: string | null;
@@ -83,12 +86,15 @@ export default function User() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(""); 
+  const [address, setAddress] = useState(""); 
   const [customerRole, setCustomerRole] = useState("");
 
   // Editable producer fields
   const [storeName, setStoreName] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
   const [storeContact, setStoreContact] = useState("");
+  const [storeAddress, setStoreAddress] = useState("");  
 
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -111,10 +117,13 @@ export default function User() {
     setEmail(data.email ?? "");
     setFirstName(data.first_name ?? "");
     setLastName(data.last_name ?? "");
+    setPhoneNumber(data.phone_number ?? ""); 
+    setAddress(data.address ?? "");                    
     setCustomerRole(data.customer_role ?? "");
     setStoreName(data.producer_profile?.store_name ?? "");
     setStoreDescription(data.producer_profile?.store_description ?? "");
     setStoreContact(data.producer_profile?.store_contact ?? "");
+    setStoreAddress(data.producer_profile?.store_address ?? "");   
   };
 
   useEffect(() => {
@@ -182,14 +191,15 @@ export default function User() {
         email,
         first_name: firstName,
         last_name: lastName,
-        // only send customer_role if not a producer
+        phone_number: phoneNumber,                   
+        address: address,
         ...(!profile?.is_producer && { customer_role: customerRole }),
-        // only send producer_profile if user is a producer
         ...(profile?.is_producer && {
           producer_profile: {
             store_name: storeName,
             store_description: storeDescription,
             store_contact: storeContact,
+            store_address: storeAddress,                 
           },
         }),
       };
@@ -227,6 +237,7 @@ export default function User() {
       {/* ── Account Info ── */}
       <div style={sectionTitle}>Account Info</div>
       <div>
+
         {/* Email — editable */}
         <div style={row}>
           <div style={label}>Email</div>
@@ -257,6 +268,36 @@ export default function User() {
           )}
         </div>
 
+        {/* Phone number — editable, shown for all users */}
+        <div style={row}>
+          <div style={label}>Phone number</div>
+          {editMode ? (
+            <input
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="+44 7700 900000"
+              style={inputStyle}
+            />
+          ) : (
+            <div>{profile.phone_number || "—"}</div>
+          )}
+        </div>
+
+        {/* Address — editable, shown for all users */}
+        <div style={row}>
+          <div style={label}>Address</div>
+          {editMode ? (
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Address"
+              style={inputStyle}
+            />
+          ) : (
+            <div>{profile.address || "—"}</div>
+          )}
+        </div>
+
         {/* Customer role — editable, only for customers */}
         {!profile.is_producer && (
           <div style={row}>
@@ -268,6 +309,7 @@ export default function User() {
                 style={inputStyle}
               >
                 <option value="individual">Individual</option>
+                <option value="community_group">Community Group</option>
                 <option value="restaurant">Restaurant</option>
               </select>
             ) : (
@@ -276,11 +318,12 @@ export default function User() {
           </div>
         )}
 
-        {/* Is producer — read only */}
+        {/* Account role — read only */}
         <div style={row}>
           <div style={label}>Account role</div>
           <div>{profile.is_producer ? "Producer" : "Customer"}</div>
         </div>
+
       </div>
 
       {/* ── Producer Store Info ── */}
@@ -288,6 +331,7 @@ export default function User() {
         <>
           <div style={sectionTitle}>Store Info</div>
           <div>
+
             {/* Store name — editable */}
             <div style={row}>
               <div style={label}>Store name</div>
@@ -323,15 +367,32 @@ export default function User() {
               )}
             </div>
 
+            {/* Store address — editable */}
+            <div style={row}>
+              <div style={label}>Store address</div>
+              {editMode ? (
+                <textarea
+                  value={storeAddress}
+                  onChange={(e) => setStoreAddress(e.target.value)}
+                  rows={3}
+                  placeholder="123 Farm Lane, Bristol, BS1 1AA"
+                  style={{ ...inputStyle, resize: "vertical" }}
+                />
+              ) : (
+                <div>{profile.producer_profile.store_address || "—"}</div>
+              )}
+            </div>
+
             {/* Store created at — read only */}
             <div style={row}>
-              <div style={label}>Created since</div>
+              <div style={label}>Store since</div>
               <div>
                 {profile.producer_profile.store_created_at
                   ? new Date(profile.producer_profile.store_created_at).toLocaleDateString()
                   : "—"}
               </div>
             </div>
+
           </div>
         </>
       )}
