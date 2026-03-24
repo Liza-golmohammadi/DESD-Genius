@@ -21,6 +21,10 @@ import Producers from "./pages/Producers";
 import ProducerDetail from "./pages/ProducerDetail";
 import AdminDashboard from "./pages/AdminDashboard";
 import Sustainability from "./pages/Sustainability";
+import OrderDetail from "./pages/OrderDetail";
+import PaymentsPage from "./pages/PaymentsPage";
+import Checkout from "./pages/Checkout";
+import Cart from "./pages/Cart";
 
 
 function Logout() {
@@ -297,11 +301,15 @@ function App() {
 
         {/* Customer only routes */}
         <Route element={<ProtectedRoute allowedRoles={["customer"]} />}>
+          <Route path="/cart" element={<Cart />} />
           <Route path="/orders" element={<Orders />} />
+          <Route path="/orders/:orderNumber" element={<OrderDetail />} />
+          <Route path="/checkout" element={<Checkout />} />
         </Route>
 
         {/* Admin only routes */}
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+          <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
         </Route>
 
