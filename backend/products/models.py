@@ -38,6 +38,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     unit = models.CharField(max_length=50, default="unit")
     image_url = models.URLField(blank=True)
+    image = models.ImageField(upload_to="products/", blank=True, null=True)
 
     stock_quantity = models.IntegerField(validators=[MinValueValidator(0)])
     low_stock_threshold = models.IntegerField(default=5, validators=[MinValueValidator(0)])
@@ -93,6 +94,12 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.producer.username})"
+
+    @property
+    def image_source(self):
+        if self.image:
+            return self.image.url
+        return self.image_url
 
     @property
     def is_in_season(self) -> bool:

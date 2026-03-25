@@ -292,7 +292,7 @@ export default function ProducerDashboard() {
   async function loadProfile() {
     setProfileLoading(true);
     try {
-      const res = await api.get<ProducerMe>("/accounts/auth/user/me/");
+      const res = await api.get<ProducerMe>("/accounts/auth/me/");
       setProfile(res.data);
       setUser(res.data as any);
       setStoreName(res.data.producer_profile?.store_name ?? "");
@@ -346,7 +346,7 @@ export default function ProducerDashboard() {
     setProfileMsg(null);
     setProfileErr(null);
     try {
-      await api.patch("/accounts/auth/user/me/", {
+      await api.patch("/accounts/auth/me/", {
         producer_profile: {
           store_name: storeName,
           store_description: storeDescription,

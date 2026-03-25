@@ -5,6 +5,19 @@ from .services import CartService
 from .serializers import CartSummarySerializer, CartItemSerializer
 from products.models import Product
 
+
+def _cart_item_to_dict(item):
+    return {
+        'product_id': item.product.id,
+        'product_name': item.product.name,
+        'producer_id': item.product.producer.id,
+        'producer_name': item.product.producer.get_full_name() or item.product.producer.email,
+        'unit_price': item.product.price,
+        'quantity': item.quantity,
+        'line_total': item.line_total,
+    }
+
+
 class CartView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -23,13 +36,13 @@ class CartItemView(APIView):
     def post(self, request):
         product_id = request.data.get('product_id')
         quantity = request.data.get('quantity')
-        
+
         if not product_id or quantity is None:
             return Response({'error': 'product_id and quantity are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             item = CartService.add_item(request.user, product_id, int(quantity))
-            serializer = CartItemSerializer(item)
+            serializer = CartItemSerializer(_cart_item_to_dict(item))
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -47,7 +60,7 @@ class CartItemDetailView(APIView):
         try:
             item = CartService.update_item(request.user, product_id, int(quantity))
             if item:
-                serializer = CartItemSerializer(item)
+                serializer = CartItemSerializer(_cart_item_to_dict(item))
                 return Response(serializer.data)
             return Response(status=status.HTTP_204_NO_CONTENT)
         except ValueError as e:

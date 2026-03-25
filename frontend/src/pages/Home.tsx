@@ -1,6 +1,29 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { PRODUCTS, CATEGORIES, PRODUCERS, type Category } from "../data/fakeProducts";
+import api from "../api";
+
+// ── Types ────────────────────────────────────────────────────────────────────
+type Category = {
+  id: number;
+  name: string;
+};
+
+type Product = {
+  id: number;
+  sku: string;
+  name: string;
+  price: string | number;
+  unit: string;
+  image_url: string | null;
+  image_source: string | null;
+  stock_quantity: number;
+  is_available: boolean;
+  organic_certified: boolean;
+  available_from: string | null;
+  available_to: string | null;
+  category: Category;
+  producer_name: string;
+};
 
 // ── Leaf SVG icon ────────────────────────────────────────────────────────────
 function LeafIcon({ size = 16, color = "#fff" }: { size?: number; color?: string }) {
@@ -11,15 +34,40 @@ function LeafIcon({ size = 16, color = "#fff" }: { size?: number; color?: string
   );
 }
 
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function isInSeason(product: Product) {
+  const today = new Date();
+  const from = product.available_from ? new Date(product.available_from) : null;
+  const to = product.available_to ? new Date(product.available_to) : null;
+
+  if (from && today < from) return false;
+  if (to && today > to) return false;
+  return true;
+}
+
+function formatPrice(value: string | number) {
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  return `£${num.toFixed(2)}`;
+}
+
+function resolveImageUrl(url: string | null) {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `http://127.0.0.1:8000${url}`;
+}
+
 // ── Product card ─────────────────────────────────────────────────────────────
 function ProductCard({
   product,
   onAddToCart,
+  adding,
 }: {
-  product: (typeof PRODUCTS)[0];
+  product: Product;
   onAddToCart: () => void;
+  adding: boolean;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const imageUrl = resolveImageUrl(product.image_source);
 
   return (
     <div
@@ -29,7 +77,6 @@ function ProductCard({
         background: "#fff",
         boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
         transition: "box-shadow 0.2s",
-        cursor: "pointer",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.boxShadow = "0 6px 24px rgba(0,0,0,0.14)";
@@ -38,38 +85,19 @@ function ProductCard({
         (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 12px rgba(0,0,0,0.07)";
       }}
     >
-      {/* Image */}
       <div style={{ position: "relative", height: 200, background: "#e8f5e9", overflow: "hidden" }}>
         <img
-          src={imgFailed ? `https://picsum.photos/seed/${product.id}/500/300` : product.image}
+          src={
+            imgFailed || !imageUrl
+              ? `https://picsum.photos/seed/${product.id}/500/300`
+              : imageUrl
+          }
           alt={product.name}
           onError={() => setImgFailed(true)}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
 
-        {/* Seasonal badge */}
-        {product.seasonal && (
-          <span
-            style={{
-              position: "absolute",
-              top: 10,
-              left: 10,
-              background: "rgba(255,255,255,0.92)",
-              color: "#2d6a4f",
-              fontSize: 10,
-              fontWeight: 800,
-              letterSpacing: 1,
-              padding: "4px 10px",
-              borderRadius: 20,
-              textTransform: "uppercase",
-            }}
-          >
-            Seasonal
-          </span>
-        )}
-
-        {/* Leaf icon */}
-        {product.organic && (
+        {product.organic_certified && (
           <div
             style={{
               position: "absolute",
@@ -88,8 +116,7 @@ function ProductCard({
           </div>
         )}
 
-        {/* In Season label */}
-        {product.inSeason && (
+        {isInSeason(product) && (
           <span
             style={{
               position: "absolute",
@@ -110,11 +137,11 @@ function ProductCard({
         )}
       </div>
 
-      {/* Info */}
       <div style={{ padding: "12px 14px 14px" }}>
         <div style={{ fontSize: 13, color: "#888", marginBottom: 2 }}>
-          {product.producer} · {product.producerLocation}
+          {product.producer_name} · {product.category?.name || "Uncategorized"}
         </div>
+
         <div
           style={{
             display: "flex",
@@ -127,9 +154,10 @@ function ProductCard({
             {product.name}
           </h3>
           <span style={{ fontSize: 17, fontWeight: 800, whiteSpace: "nowrap", color: "#1b4332" }}>
-            £{product.price.toFixed(2)}
+            {formatPrice(product.price)}
           </span>
         </div>
+
         <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>{product.unit}</div>
 
         <button
@@ -137,23 +165,28 @@ function ProductCard({
             e.stopPropagation();
             onAddToCart();
           }}
+          disabled={adding || !product.is_available || product.stock_quantity <= 0}
           style={{
             marginTop: 10,
             width: "100%",
             padding: "8px 0",
             borderRadius: 10,
             border: "none",
-            background: "#2d6a4f",
+            background:
+              adding || !product.is_available || product.stock_quantity <= 0 ? "#9ca3af" : "#2d6a4f",
             color: "#fff",
             fontWeight: 700,
             fontSize: 13,
-            cursor: "pointer",
+            cursor:
+              adding || !product.is_available || product.stock_quantity <= 0 ? "not-allowed" : "pointer",
             transition: "background 0.15s",
           }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "#1b4332")}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "#2d6a4f")}
         >
-          Add to basket
+          {adding
+            ? "Adding..."
+            : !product.is_available || product.stock_quantity <= 0
+            ? "Unavailable"
+            : "Add to basket"}
         </button>
       </div>
     </div>
@@ -164,64 +197,95 @@ function ProductCard({
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get("q") ?? "";
-  const [activeCategories, setActiveCategories] = useState<Category[]>([]);
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
+  const [addingProductId, setAddingProductId] = useState<number | null>(null);
+
+  const [activeCategories, setActiveCategories] = useState<number[]>([]);
   const [organicOnly, setOrganicOnly] = useState(false);
   const [activeProducers, setActiveProducers] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"popular" | "price-asc" | "price-desc" | "name">("popular");
-  const [, setCartCount] = useState(0);
 
-  // ── Filtering & sorting ───────────────────────────────────────────────────
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setPageError("");
+
+        const [productsRes, categoriesRes] = await Promise.all([
+          api.get<Product[]>("/api/products/"),
+          api.get<Category[]>("/api/products/categories/"),
+        ]);
+
+        setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+        setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
+      } catch (error: any) {
+        setPageError(error?.response?.data?.error || error?.message || "Failed to load products.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const producerNames = useMemo(() => {
+    return Array.from(new Set(products.map((p) => p.producer_name))).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [products]);
+
   const filtered = useMemo(() => {
-    let list = PRODUCTS;
+    let list = [...products];
 
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
-          p.producer.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q)
+          p.producer_name.toLowerCase().includes(q) ||
+          p.category?.name.toLowerCase().includes(q)
       );
     }
 
     if (activeCategories.length > 0) {
-      list = list.filter((p) => activeCategories.includes(p.category));
+      list = list.filter((p) => activeCategories.includes(p.category?.id));
     }
 
     if (organicOnly) {
-      list = list.filter((p) => p.organic);
+      list = list.filter((p) => p.organic_certified);
     }
 
     if (activeProducers.length > 0) {
-      list = list.filter((p) => activeProducers.includes(p.producer));
+      list = list.filter((p) => activeProducers.includes(p.producer_name));
     }
 
-    if (sortBy === "price-asc") list = [...list].sort((a, b) => a.price - b.price);
-    else if (sortBy === "price-desc") list = [...list].sort((a, b) => b.price - a.price);
-    else if (sortBy === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    if (sortBy === "price-asc") list.sort((a, b) => Number(a.price) - Number(b.price));
+    else if (sortBy === "price-desc") list.sort((a, b) => Number(b.price) - Number(a.price));
+    else if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
 
     return list;
-  }, [search, activeCategories, organicOnly, activeProducers, sortBy]);
+  }, [products, search, activeCategories, organicOnly, activeProducers, sortBy]);
 
-  // ── Counts per category (after other filters) ─────────────────────────────
   const countPerCategory = useMemo(() => {
-    return CATEGORIES.reduce(
-      (acc, cat) => {
-        acc[cat] = PRODUCTS.filter(
-          (p) =>
-            p.category === cat &&
-            (!organicOnly || p.organic) &&
-            (activeProducers.length === 0 || activeProducers.includes(p.producer))
-        ).length;
-        return acc;
-      },
-      {} as Record<Category, number>
-    );
-  }, [organicOnly, activeProducers]);
+    return categories.reduce((acc, cat) => {
+      acc[cat.id] = products.filter(
+        (p) =>
+          p.category?.id === cat.id &&
+          (!organicOnly || p.organic_certified) &&
+          (activeProducers.length === 0 || activeProducers.includes(p.producer_name))
+      ).length;
+      return acc;
+    }, {} as Record<number, number>);
+  }, [categories, products, organicOnly, activeProducers]);
 
-  function toggleCategory(cat: Category) {
+  function toggleCategory(categoryId: number) {
     setActiveCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
     );
   }
 
@@ -231,20 +295,31 @@ export default function Home() {
     );
   }
 
-  const uniqueProducerCount = new Set(PRODUCTS.map((p) => p.producer)).size;
+  async function handleAddToCart(productId: number) {
+    try {
+      setActionMessage("");
+      setAddingProductId(productId);
 
-  // ── Styles ─────────────────────────────────────────────────────────────────
+      await api.post("/api/cart/items/", {
+        product_id: productId,
+        quantity: 1,
+      });
+
+      setActionMessage("Item added to basket.");
+    } catch (error: any) {
+      setActionMessage(
+        error?.response?.data?.error || error?.message || "Failed to add item to basket."
+      );
+    } finally {
+      setAddingProductId(null);
+    }
+  }
+
   const s = {
     page: {
       minHeight: "100vh",
       background: "#f8faf8",
       fontFamily: "'Segoe UI', system-ui, sans-serif",
-    } as React.CSSProperties,
-    hero: {
-      background: "linear-gradient(135deg, #1b4332 0%, #2d6a4f 50%, #40916c 100%)",
-      padding: "52px 40px 48px",
-      position: "relative",
-      overflow: "hidden",
     } as React.CSSProperties,
     heroTitle: {
       color: "#fff",
@@ -259,30 +334,6 @@ export default function Home() {
       fontSize: 17,
       margin: 0,
       maxWidth: 420,
-    } as React.CSSProperties,
-    searchBar: {
-      marginTop: 28,
-      display: "flex",
-      gap: 0,
-      maxWidth: 520,
-    } as React.CSSProperties,
-    searchInput: {
-      flex: 1,
-      padding: "13px 18px",
-      border: "none",
-      borderRadius: "12px 0 0 12px",
-      fontSize: 15,
-      outline: "none",
-    } as React.CSSProperties,
-    searchBtn: {
-      padding: "13px 20px",
-      background: "#40916c",
-      color: "#fff",
-      border: "none",
-      borderRadius: "0 12px 12px 0",
-      fontSize: 15,
-      fontWeight: 700,
-      cursor: "pointer",
     } as React.CSSProperties,
     body: {
       maxWidth: 1200,
@@ -349,9 +400,24 @@ export default function Home() {
     } as React.CSSProperties,
   };
 
+  if (loading) {
+    return (
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 20px" }}>
+        Loading products...
+      </div>
+    );
+  }
+
+  if (pageError) {
+    return (
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 20px", color: "crimson" }}>
+        {pageError}
+      </div>
+    );
+  }
+
   return (
     <div style={s.page}>
-      {/* ── Hero ───────────────────────────────────────────────────────────── */}
       <div
         style={{
           position: "relative",
@@ -364,12 +430,12 @@ export default function Home() {
           alignItems: "center",
         }}
       >
-        {/* Dark overlay */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(to right, rgba(27,67,50,0.82) 0%, rgba(27,67,50,0.55) 60%, rgba(27,67,50,0.25) 100%)",
+            background:
+              "linear-gradient(to right, rgba(27,67,50,0.82) 0%, rgba(27,67,50,0.55) 60%, rgba(27,67,50,0.25) 100%)",
           }}
         />
         <div
@@ -393,7 +459,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Stats bar ──────────────────────────────────────────────────────── */}
       <div
         style={{
           background: "#fff",
@@ -409,51 +474,48 @@ export default function Home() {
             gap: 32,
             fontSize: 13,
             color: "#666",
+            flexWrap: "wrap",
           }}
         >
           <span>
-            <strong style={{ color: "#1b4332" }}>{PRODUCTS.length}</strong> products available
+            <strong style={{ color: "#1b4332" }}>{products.length}</strong> products available
           </span>
           <span>
-            <strong style={{ color: "#1b4332" }}>{uniqueProducerCount}</strong> local producers
+            <strong style={{ color: "#1b4332" }}>{producerNames.length}</strong> local producers
           </span>
           <span>
             <strong style={{ color: "#1b4332" }}>
-              {PRODUCTS.filter((p) => p.organic).length}
+              {products.filter((p) => p.organic_certified).length}
             </strong>{" "}
             organic lines
           </span>
         </div>
       </div>
 
-      {/* ── Body: sidebar + grid ───────────────────────────────────────────── */}
       <div style={s.body}>
-        {/* Sidebar */}
         <aside style={s.sidebar}>
-          {/* Categories */}
           <div style={s.sideSection}>
             <div style={s.sideHeading}>Categories</div>
-            {CATEGORIES.map((cat) => {
-              const active = activeCategories.includes(cat);
+            {categories.map((cat) => {
+              const active = activeCategories.includes(cat.id);
               return (
                 <div
-                  key={cat}
+                  key={cat.id}
                   style={{
                     ...s.catRow,
                     background: active ? "#f0faf4" : "transparent",
                     fontWeight: active ? 700 : 400,
                     color: active ? "#1b4332" : "#333",
                   }}
-                  onClick={() => toggleCategory(cat)}
+                  onClick={() => toggleCategory(cat.id)}
                 >
-                  <span>{cat}</span>
-                  <span style={s.badge}>{countPerCategory[cat]}</span>
+                  <span>{cat.name}</span>
+                  <span style={s.badge}>{countPerCategory[cat.id] || 0}</span>
                 </div>
               );
             })}
           </div>
 
-          {/* Certification */}
           <div style={s.sideSection}>
             <div style={s.sideHeading}>Certification</div>
             <label
@@ -469,12 +531,11 @@ export default function Home() {
             </label>
           </div>
 
-          {/* Producers */}
           <div style={{ ...s.sideSection, borderBottom: "none" }}>
             <div style={s.sideHeading}>Producers</div>
-            {PRODUCERS.map((p) => (
+            {producerNames.map((name) => (
               <label
-                key={p.name}
+                key={name}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -486,19 +547,15 @@ export default function Home() {
               >
                 <input
                   type="checkbox"
-                  checked={activeProducers.includes(p.name)}
-                  onChange={() => toggleProducer(p.name)}
+                  checked={activeProducers.includes(name)}
+                  onChange={() => toggleProducer(name)}
                   style={{ accentColor: "#2d6a4f", width: 14, height: 14, flexShrink: 0 }}
                 />
-                <span>
-                  <div style={{ fontWeight: 500 }}>{p.name}</div>
-                  <div style={{ color: "#aaa", fontSize: 11 }}>{p.location}</div>
-                </span>
+                <span style={{ fontWeight: 500 }}>{name}</span>
               </label>
             ))}
           </div>
 
-          {/* Clear filters */}
           {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0) && (
             <div style={{ padding: "12px 20px 4px" }}>
               <button
@@ -524,21 +581,25 @@ export default function Home() {
           )}
         </aside>
 
-        {/* Main content */}
         <main style={s.main}>
-          {/* Header row */}
           <div style={s.mainHeader}>
             <div>
               <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800 }}>Fresh from the Farm</h2>
               <p style={{ margin: "6px 0 0", color: "#777", fontSize: 14 }}>
-                Showing{" "}
-                <strong style={{ color: "#1b4332" }}>{filtered.length}</strong> products from{" "}
-                <strong style={{ color: "#1b4332" }}>{uniqueProducerCount}</strong> local producers
+                Showing <strong style={{ color: "#1b4332" }}>{filtered.length}</strong> products
               </p>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 13, color: "#888", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <span
+                style={{
+                  fontSize: 13,
+                  color: "#888",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                }}
+              >
                 Sort by:
               </span>
               <select
@@ -562,26 +623,45 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Active filter chips */}
+          {actionMessage && (
+            <div
+              style={{
+                marginBottom: 16,
+                padding: "12px 14px",
+                borderRadius: 12,
+                background: actionMessage.toLowerCase().includes("added") ? "#ecfdf3" : "#fef2f2",
+                color: actionMessage.toLowerCase().includes("added") ? "#166534" : "#b91c1c",
+                border: actionMessage.toLowerCase().includes("added")
+                  ? "1px solid #bbf7d0"
+                  : "1px solid #fecaca",
+              }}
+            >
+              {actionMessage}
+            </div>
+          )}
+
           {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0 || search) && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-              {activeCategories.map((c) => (
-                <span
-                  key={c}
-                  onClick={() => toggleCategory(c)}
-                  style={{
-                    background: "#e8f5e9",
-                    color: "#1b4332",
-                    padding: "5px 12px",
-                    borderRadius: 20,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {c} ×
-                </span>
-              ))}
+              {categories
+                .filter((c) => activeCategories.includes(c.id))
+                .map((c) => (
+                  <span
+                    key={c.id}
+                    onClick={() => toggleCategory(c.id)}
+                    style={{
+                      background: "#e8f5e9",
+                      color: "#1b4332",
+                      padding: "5px 12px",
+                      borderRadius: 20,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {c.name} ×
+                  </span>
+                ))}
+
               {organicOnly && (
                 <span
                   onClick={() => setOrganicOnly(false)}
@@ -598,6 +678,7 @@ export default function Home() {
                   Organic ×
                 </span>
               )}
+
               {search && (
                 <span
                   onClick={() => setSearchParams({})}
@@ -617,7 +698,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Product grid */}
           {filtered.length === 0 ? (
             <div
               style={{
@@ -635,7 +715,8 @@ export default function Home() {
                 <ProductCard
                   key={product.id}
                   product={product}
-                  onAddToCart={() => setCartCount((n) => n + 1)}
+                  adding={addingProductId === product.id}
+                  onAddToCart={() => handleAddToCart(product.id)}
                 />
               ))}
             </div>

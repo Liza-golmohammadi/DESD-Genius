@@ -39,8 +39,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     producer_profile = ProducerProfileSerializer(required=False)
     class Meta:
         model = User
-        fields = ['email', 'first_name', 'last_name', 'phone_number', 'address', 'customer_role', 'is_producer', 'producer_profile']
-        read_only_fields = ['is_producer']
+        fields = ['email', 'first_name', 'last_name', 'phone_number', 'address', 'postcode', 'delivery_address', 'customer_role', 'is_producer', 'role', 'producer_profile']
+        read_only_fields = ['is_producer', 'role']
 
     def validate_email(self, value):
         user = self.instance
@@ -87,6 +87,7 @@ class CustomerRegisterSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(
             email=validated_data.pop('email'),
             password=password,
+            is_active=True,
             **validated_data
         )
         user.mark_terms_accepted()
@@ -127,6 +128,8 @@ class ProducerRegisterSerializer(serializers.ModelSerializer):
             email=validated_data.pop('email'),
             password=password,
             is_producer=True,
+            is_active=True,
+            role='producer',
             customer_role=None,
             **validated_data
         )

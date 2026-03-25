@@ -54,7 +54,7 @@ class ProductListCreateView(APIView):
         if organic in ("true", "false"):
             qs = qs.filter(organic_certified=(organic == "true"))
 
-        return Response(ProductListSerializer(qs.order_by("name"), many=True).data)
+        return Response(ProductListSerializer(qs.order_by("name"), many=True, context={"request": request}).data)
 
     def post(self, request):
         if not request.user.is_authenticated:
@@ -65,7 +65,7 @@ class ProductListCreateView(APIView):
         serializer = ProductCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product = serializer.save(producer=request.user)
-        return Response(ProductDetailSerializer(product).data, status=status.HTTP_201_CREATED)
+        return Response(ProductDetailSerializer(product, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
 class ProductDetailView(APIView):
@@ -85,7 +85,7 @@ class ProductDetailView(APIView):
             else:
                 return Response(status=status.HTTP_404_NOT_FOUND)
 
-        return Response(ProductDetailSerializer(product).data)
+        return Response(ProductDetailSerializer(product, context={"request": request}).data)
 
 
 class ProductInventoryUpdateView(APIView):
@@ -111,4 +111,4 @@ class ProductInventoryUpdateView(APIView):
         serializer = ProductCreateSerializer(instance=product, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(ProductDetailSerializer(product).data)
+        return Response(ProductDetailSerializer(product, context={"request": request}).data)
