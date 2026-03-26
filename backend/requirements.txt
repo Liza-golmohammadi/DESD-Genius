@@ -1,0 +1,12 @@
+asgiref
+certifi
+charset-normalizer
+Django
+django-cors-headers
+djangorestframework
+idna
+psycopg2-binary
+PyJWT
+requests
+sqlparse
+urllib3
