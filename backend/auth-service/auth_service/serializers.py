@@ -1,144 +1,180 @@
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import CustomerProfile, ProducerProfile
+from rest_framework import serializers
+from .models import ProducerProfile
 
 User = get_user_model()
 
-# Custom token
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    @classmethod
-    def get_token(cls, user):
-        token = super().get_token(user)
-        token['role'] = user.role
-        token['user_id'] = user.id
-        return token
 
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        data['role'] = self.user.role
-        data['user_id'] = self.user.id
-        return data
-
+class ProducerProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProducerProfile
+        fields = ['store_name', 'store_description', 'store_contact', 'store_address', 'store_created_at']
 
 class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    producer_profile = ProducerProfileSerializer(read_only=True)
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "password",
+            "phone_number",
+            "address",
+            "postcode",
+            "customer_role",
+            "is_producer",
+            "accepted_terms_at",
+            "producer_profile",
+        ]
+        read_only_fields = ["id", "is_producer", "accepted_terms_at"]
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    producer_profile = ProducerProfileSerializer(required=False)
+    class Meta:
+        model = User
+        fields = ['email', 'first_name', 'last_name', 'phone_number', 'address', 'postcode', 'customer_role', 'is_producer', 'producer_profile']
+        read_only_fields = ['is_producer']
+
+    def validate_email(self, value):
+        user = self.instance
+        if User.objects.exclude(pk=user.pk).filter(email=value).exists():
+            raise serializers.ValidationError('This email is already in use.')
+        return value
+
+    def update(self, instance, validated_data):
+        producer_data = validated_data.pop('producer_profile', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if producer_data and instance.is_producer:
+            profile, created = ProducerProfile.objects.get_or_create(user=instance)
+            for attr, value in producer_data.items():
+                setattr(profile, attr, value)
+            profile.save()
+        return instance
+
+class CustomerRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=4)
+    accepted_terms = serializers.BooleanField(write_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'email', 'password', 'first_name', 'last_name', 'role', 'phone_number', 'terms_accepted', 'accepted_terms_at')
-        read_only_fields = ["id", "role", "accepted_terms_at"]
+        fields = ['email', 'password', 'accepted_terms', 'first_name', 'last_name', 'customer_role']
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate(self, attrs):
+        if not attrs.get('accepted_terms'):
+            raise serializers.ValidationError({'accepted_terms': 'You must accept T&C.'})
+        if not attrs.get('customer_role'):
+            raise serializers.ValidationError({'customer_role': 'Customer role is required.'})
+        return attrs
+
     def create(self, validated_data):
+        validated_data.pop('accepted_terms')
         password = validated_data.pop('password')
-        user = User(**validated_data)
-        user.set_password(password)
+        user = User.objects.create_user(
+            email=validated_data.pop('email'),
+            password=password,
+            is_active=True,
+            **validated_data
+        )
+        user.mark_terms_accepted()
         user.save()
         return user
 
-# Registration
-class CustomerRegistrationSerializer(serializers.Serializer):
-    user = UserSerializer()
+
+class ProducerRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=4)
+    accepted_terms = serializers.BooleanField(write_only=True)
+    store_name = serializers.CharField(max_length=100)
+    store_description = serializers.CharField(required=False, allow_blank=True)
+    store_contact = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
-        model = CustomerProfile
-        fields = ('user', 'account_type', 'address', 'postcode')
+        model = User
+        fields = ['email', 'password', 'accepted_terms', 'first_name', 'last_name', 'store_name', 'store_description', 'store_contact']
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate(self, attrs):
+        if not attrs.get('accepted_terms'):
+            raise serializers.ValidationError({'accepted_terms': 'You must accept T&C.'})
+        if not attrs.get('store_name'):
+            raise serializers.ValidationError({'store_name': 'Store name is required for producers.'})
+        return attrs
 
     def create(self, validated_data):
-        user_data = validated_data.pop('user')
-        user = UserSerializer().create({**user_data, 'role': 'CUSTOMER'})
-        profile = CustomerProfile.objects.create(user=user, **validated_data)
-        return profile
+        validated_data.pop('accepted_terms')
+        store_name = validated_data.pop('store_name', '')
+        store_description = validated_data.pop('store_description', '')
+        store_contact = validated_data.pop('store_contact', '')
+        password = validated_data.pop('password')
 
+        user = User.objects.create_user(
+            email=validated_data.pop('email'),
+            password=password,
+            is_producer=True,
+            customer_role=None,
+            **validated_data
+        )
+        user.mark_terms_accepted()
+        user.save()
+        
 
-class ProducerRegistrationSerializer(serializers.Serializer):
-    user = UserSerializer()
-    class Meta:
-        model = ProducerProfile
-        fields = ('user', 'store_name', 'store_description', 'store_address', 'store_postcode', 'farm_story')
-    def create(self, validated_data):
-        user_data = validated_data.pop('user')
-        user = User.objects.create_user(**user_data, role='PRODUCER')
-        ProducerProfile.objects.create(user=user, **validated_data)
+        user.producer_profile.store_name = store_name
+        user.producer_profile.store_description = store_description
+        user.producer_profile.store_contact = store_contact
+        user.producer_profile.save()
+
         return user
 
+    def to_representation(self, instance):
+        return UserSerializer(instance).data
 
-# Profile Update
-class CustomerProfileSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(source='user.email')
-    first_name = serializers.CharField(source='user.first_name')
-    last_name = serializers.CharField(source='user.last_name')
-    phone_number = serializers.CharField(source='user.phone_number')
-    role = serializers.CharField(source='user.rike')
-    
-
-    class Meta:
-        model = CustomerProfile
-        fields = ('email', 'first_name', 'last_name', 'phone_number', 'role', 'account_type', 'address', 'post_code')
-        read_only_fields = ['role']
-        
-    def validate_email(self, value):
-        user = self.instance.user
-        if User.objects.exclude(pk=user.pk).filter(email=value).exists():
-            raise serializers.ValidationError('This email is already in use.')
-        return value
-    
-    def update(self, instance, validated_data):
-        user_data = validated_data.pop('user', {})
-        user = instance.user
-
-		# Update User fields
-        for attr, value in user_data.items():
-            setattr(user, attr, value)
-        user.save()
-        
-		# Update CustomerProfile fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        return instance
-
-
-class ProducerProfileSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(source='user.email')
-    first_name = serializers.CharField(source='user.first_name')
-    last_name = serializers.CharField(source='user.last_name')
-    phone_number = serializers.CharField(source='user.phone_number')
-    role = serializers.CharField(source='user.rike')
+class ProducerListSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
 
     class Meta:
         model = ProducerProfile
-        fields = ('email', 'first_name', 'last_name', 'phone_number', 'role', 'store_name', 'store_description', 'store_address', 'store_postcode' 'farm_story', 'store_created_at')
-        read_only_fields = ['role', 'store_created_at']
+        fields = [
+            'id', 'email', 'first_name', 'last_name',
+            'store_name', 'store_description', 'store_contact', 'store_address', 'store_postcode', 'store_created_at',
+            'farm_story',
+        ]
 
-    def validate_email(self, value):
-        user = self.instance.user
-        if User.objects.exclude(pk=user.pk).filter(email=value).exists():
-            raise serializers.ValidationError('This email is already in use.')
-        return value
-    
-    def update(self, instance, validated_data):
-        user_data = validated_data.pop('user', {})
-        user = instance.user
+class ProducerDetailSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
 
-		# Update User fields
-        for attr, value in user_data.items():
-            setattr(user, attr, value)
-        user.save()
-        
-		# Update ProducerProfile fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        return instance
-
-# Public producer profiles
-class ProducerPublicSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(source='user.email')
-    phone_number = serializers.CharField(source='user.phone_number')
-    
     class Meta:
         model = ProducerProfile
-        fields = ('id', 'store_name', 'store_description', 'email', 'phone_number', 'store_address', 'store_postcode' 'farm_story')
-        read_only_fields = fields
+        fields = [
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'store_name',
+            'store_description',
+            'store_contact',
+            'store_address',
+            'store_created_at',
+            
+        ]
+
+    """ def get_products(self, obj):
+        from products.serializers import ProductListSerializer
+        products = obj.user.products.filter(is_available=True)
+        return ProductListSerializer(products, many=True).data """
