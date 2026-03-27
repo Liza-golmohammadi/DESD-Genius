@@ -39,6 +39,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     producer_name = serializers.SerializerMethodField()
+    producer_id = serializers.IntegerField(source="producer.id", read_only=True)
     is_in_season = serializers.SerializerMethodField()
     is_low_stock = serializers.SerializerMethodField()
     image = serializers.ImageField(read_only=True)
@@ -51,8 +52,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "image", "image_source",
             "stock_quantity", "low_stock_threshold", "is_available",
             "available_from", "available_to", "is_in_season", "is_low_stock",
-            "allergens", "organic_certified", "harvest_date",
-            "category", "producer_name", "created_at", "updated_at",
+            "allergens", "storage_tips", "recipe_idea", "organic_certified", "harvest_date",
+            "category", "producer_name", "producer_id", "created_at", "updated_at",
             "farm_origin", "food_miles",
         ]
 

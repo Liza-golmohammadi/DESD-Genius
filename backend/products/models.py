@@ -48,6 +48,8 @@ class Product(models.Model):
     available_to = models.DateField(null=True, blank=True)
 
     allergens = models.TextField(blank=True)
+    storage_tips = models.TextField(blank=True)
+    recipe_idea = models.TextField(blank=True)
     organic_certified = models.BooleanField(default=False)
     harvest_date = models.DateField()
     farm_origin = models.CharField(max_length=255, blank=True, default="", help_text="e.g. 'Bristol, UK'")

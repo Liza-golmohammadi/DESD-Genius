@@ -32,10 +32,10 @@ class OrderService:
 
         for p_group in summary['producers']:
             p_id = p_group['producer_id']
-            if p_id not in producer_delivery_dates:
+            if str(p_id) not in producer_delivery_dates:
                 raise ValueError(f'Missing delivery date for producer {p_id}')
-            
-            delivery_date = producer_delivery_dates[p_id]
+
+            delivery_date = producer_delivery_dates[str(p_id)]
             if delivery_date < min_delivery_date:
                 raise ValueError(f'Delivery date for producer {p_id} must be at least 48 hours from now')
             
@@ -82,7 +82,7 @@ class OrderService:
                 order=order,
                 producer=producer,
                 subtotal=subtotal,
-                delivery_date=producer_delivery_dates[p_id],
+                delivery_date=producer_delivery_dates[str(p_id)],
                 status='pending'
             )
 

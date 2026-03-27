@@ -34,6 +34,7 @@ interface User {
   first_name?: string;
   last_name?: string;
   customer_role?: string;
+  postcode?: string;
   is_producer?: boolean;
   accepted_terms_at?: string;
   producer_profile?: {

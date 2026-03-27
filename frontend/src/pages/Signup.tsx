@@ -11,6 +11,7 @@ interface SignupFormData {
   last_name: string;
   accepted_terms: boolean;
   customer_role: string;
+  postcode: string;
   store_name: string;
   store_description: string;
   store_contact: string;
@@ -41,6 +42,7 @@ const Signup = () => {
     last_name: "",
     accepted_terms: false,
     customer_role: "individual",
+    postcode: "",
     store_name: "",
     store_description: "",
     store_contact: "",
@@ -86,6 +88,7 @@ const Signup = () => {
           last_name: formData.last_name,
           accepted_terms: formData.accepted_terms,
           customer_role: formData.customer_role,
+          postcode: formData.postcode,
         });
       }
     } catch (err: unknown) {
@@ -249,6 +252,17 @@ const Signup = () => {
           />
 
           {/* Customer fields */}
+          {!isProducer && (
+            <input
+              name="postcode"
+              type="text"
+              value={formData.postcode}
+              onChange={handleChange}
+              placeholder="Postcode (e.g. BS1 4DJ)"
+              style={inputStyle}
+            />
+          )}
+
           {!isProducer && (
             <select
               name="customer_role"

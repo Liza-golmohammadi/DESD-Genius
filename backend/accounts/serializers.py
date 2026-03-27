@@ -68,7 +68,7 @@ class CustomerRegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'password', 'accepted_terms', 'first_name', 'last_name', 'customer_role']
+        fields = ['email', 'password', 'accepted_terms', 'first_name', 'last_name', 'customer_role', 'postcode']
 
     def validate_password(self, value):
         validate_password(value)
@@ -177,6 +177,7 @@ class ProducerDetailSerializer(serializers.ModelSerializer):
             'store_contact',
             'store_address',
             'store_created_at',
+            'farm_story',
             'products',
         ]
 

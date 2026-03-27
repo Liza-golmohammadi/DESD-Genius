@@ -25,7 +25,10 @@ import OrderDetail from "./pages/OrderDetail";
 import PaymentsPage from "./pages/PaymentsPage";
 import Checkout from "./pages/Checkout";
 import Cart from "./pages/Cart";
-
+import ProductDetail from "./pages/ProductDetail";
+import RescueMarket from "./pages/RescueMarket";
+import ResolutionCenter from "./pages/ResolutionCenter";
+import CommunityHub from "./pages/CommunityHub";
 
 function Logout() {
   const { logoutUser } = useAuth();
@@ -43,7 +46,6 @@ function Layout() {
   const [searchInput, setSearchInput] = useState("");
 
   const isAuthed = !!localStorage.getItem("access");
-
   const isProducer = !!user?.producer_profile;
 
   function handleSearch(e: React.FormEvent) {
@@ -172,8 +174,21 @@ function Layout() {
                 </NavLink>
               )}
 
+              <NavLink to="/rescue-market" style={pill}>
+                Rescue Market
+              </NavLink>
+
               <NavLink to="/sustainability" style={pill}>
                 Sustainability
+              </NavLink>
+
+              <NavLink to="/community" style={pill}>
+                Community
+              </NavLink>
+
+              {/* ✅ NEW: Resolution Center link */}
+              <NavLink to="/resolution-center" style={pill}>
+                Resolution Center
               </NavLink>
             </nav>
           </div>
@@ -215,7 +230,14 @@ function Layout() {
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <NavLink to="/cart" style={{ position: "relative", cursor: "pointer", display: "flex" }}>
-              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth={2}>
+              <svg
+                width={24}
+                height={24}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="rgba(255,255,255,0.85)"
+                strokeWidth={2}
+              >
                 <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <path d="M16 10a4 4 0 0 1-8 0" />
@@ -276,15 +298,10 @@ function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/products/:id" element={<ProductDetail />} />
 
-        <Route
-          path="/producers"
-          element={<RequireAuth><Producers /></RequireAuth>}
-        />
-        <Route
-          path="/producers/:id"
-          element={<RequireAuth><ProducerDetail /></RequireAuth>}
-        />
+        <Route path="/producers" element={<RequireAuth><Producers /></RequireAuth>} />
+        <Route path="/producers/:id" element={<ProducerDetail />} />
 
         <Route path="/signup" element={<AuthGate><Signup /></AuthGate>} />
         <Route path="/login" element={<AuthGate><Login /></AuthGate>} />
@@ -293,6 +310,9 @@ function App() {
         <Route path="/user" element={<RequireAuth><User /></RequireAuth>} />
 
         <Route path="/sustainability" element={<Sustainability />} />
+        <Route path="/rescue-market" element={<RescueMarket />} />
+        <Route path="/community" element={<CommunityHub />} />
+        <Route path="/resolution-center" element={<ResolutionCenter />} />
 
         {/* Producer only routes */}
         <Route element={<ProtectedRoute allowedRoles={["producer"]} />}>

@@ -54,6 +54,28 @@ class ProductListCreateView(APIView):
         if organic in ("true", "false"):
             qs = qs.filter(organic_certified=(organic == "true"))
 
+        min_price = request.query_params.get("min_price")
+        if min_price:
+            try:
+                qs = qs.filter(price__gte=min_price)
+            except Exception:
+                pass
+
+        max_price = request.query_params.get("max_price")
+        if max_price:
+            try:
+                qs = qs.filter(price__lte=max_price)
+            except Exception:
+                pass
+
+        allergen = request.query_params.get("allergen")
+        if allergen:
+            qs = qs.filter(allergens__icontains=allergen)
+
+        producer_id = request.query_params.get("producer_id")
+        if producer_id:
+            qs = qs.filter(producer_id=producer_id)
+
         return Response(ProductListSerializer(qs.order_by("name"), many=True, context={"request": request}).data)
 
     def post(self, request):

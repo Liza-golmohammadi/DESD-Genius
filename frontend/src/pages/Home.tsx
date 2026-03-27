@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, Link } from "react-router";
 import api from "../api";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -85,6 +85,7 @@ function ProductCard({
         (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 12px rgba(0,0,0,0.07)";
       }}
     >
+      <Link to={`/products/${product.id}`} style={{ textDecoration: "none", display: "block" }}>
       <div style={{ position: "relative", height: 200, background: "#e8f5e9", overflow: "hidden" }}>
         <img
           src={
@@ -136,6 +137,7 @@ function ProductCard({
           </span>
         )}
       </div>
+      </Link>
 
       <div style={{ padding: "12px 14px 14px" }}>
         <div style={{ fontSize: 13, color: "#888", marginBottom: 2 }}>
@@ -209,6 +211,7 @@ export default function Home() {
   const [organicOnly, setOrganicOnly] = useState(false);
   const [activeProducers, setActiveProducers] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"popular" | "price-asc" | "price-desc" | "name">("popular");
+  const [maxPrice, setMaxPrice] = useState<number>(20);
 
   useEffect(() => {
     const loadData = async () => {
@@ -264,12 +267,14 @@ export default function Home() {
       list = list.filter((p) => activeProducers.includes(p.producer_name));
     }
 
+    list = list.filter((p) => Number(p.price) <= maxPrice);
+
     if (sortBy === "price-asc") list.sort((a, b) => Number(a.price) - Number(b.price));
     else if (sortBy === "price-desc") list.sort((a, b) => Number(b.price) - Number(a.price));
     else if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
 
     return list;
-  }, [products, search, activeCategories, organicOnly, activeProducers, sortBy]);
+  }, [products, search, activeCategories, organicOnly, activeProducers, sortBy, maxPrice]);
 
   const countPerCategory = useMemo(() => {
     return categories.reduce((acc, cat) => {
@@ -517,6 +522,26 @@ export default function Home() {
           </div>
 
           <div style={s.sideSection}>
+            <div style={s.sideHeading}>Price</div>
+            <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
+              Up to <strong style={{ color: "#1b4332" }}>£{maxPrice.toFixed(2)}</strong>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={20}
+              step={0.5}
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(Number(e.target.value))}
+              style={{ width: "100%", accentColor: "#2d6a4f" }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#aaa", marginTop: 4 }}>
+              <span>£1</span>
+              <span>£20</span>
+            </div>
+          </div>
+
+          <div style={s.sideSection}>
             <div style={s.sideHeading}>Certification</div>
             <label
               style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}
@@ -563,6 +588,7 @@ export default function Home() {
                   setActiveCategories([]);
                   setOrganicOnly(false);
                   setActiveProducers([]);
+                  setMaxPrice(20);
                 }}
                 style={{
                   width: "100%",
