@@ -22,6 +22,7 @@ type CartSummary = {
   cart_id?: number;
   item_count: number;
   grand_total: number | string;
+  food_miles_total?: number | string;
   producers: ProducerGroup[];
 };
 
@@ -209,6 +210,15 @@ const Cart = () => {
               <span>Producers</span>
               <strong>{cart.producers.length}</strong>
             </div>
+
+            {cart.food_miles_total && Number(cart.food_miles_total) > 0 && (
+              <div style={summaryRowStyle}>
+                <span>Total food miles</span>
+                <strong style={{ color: "#2d6a4f" }}>
+                  {Number(cart.food_miles_total).toFixed(1)} mi
+                </strong>
+              </div>
+            )}
 
             <div style={dividerStyle} />
 
