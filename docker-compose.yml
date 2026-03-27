@@ -29,10 +29,10 @@ services:
       - "5434:5432"
 
   users-service:
-    build: backend/users_service
+    build: backend/auth_service
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - ./backend/users_service:/app
+      - ./backend/auth_service:/app
     environment:
       USE_POSTGRES: "1"
       DB_HOST: users-db
