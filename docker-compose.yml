@@ -102,4 +102,4 @@ services:
       - users-service
       - products-service
       - orders-service
-      # - frontend # Will depend on it once it's created, but better to keep it decoupled for fast startup debugging
+
