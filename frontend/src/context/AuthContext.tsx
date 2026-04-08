@@ -137,7 +137,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
 const registerProducer = useCallback(
   async (payload: RegisterProducerPayload) => {
-    await api.post("/accounts/auth/register/producer/", payload);
+    await api.post("/api/auth_service/register/producer/", payload);
     await loginUser({
       email: payload.email,
       password: payload.password,
