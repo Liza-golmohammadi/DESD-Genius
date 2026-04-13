@@ -13,13 +13,15 @@ class ProductListSerializer(serializers.ModelSerializer):
     # producer_name = serializers.SerializerMethodField()
     image = serializers.ImageField(read_only=True)
     image_source = serializers.SerializerMethodField()
+    is_low_stock = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             "id", "sku", "name", "price", "unit", "image_url",
             "image", "image_source",
-            "stock_quantity", "is_available", "organic_certified",
+            "stock_quantity", "low_stock_threshold", "is_available",
+            "is_low_stock", "organic_certified",
             "available_from", "available_to", "category",
             "farm_origin", "food_miles", "producer_id", "producer_name",
         ]
@@ -35,6 +37,9 @@ class ProductListSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
         return obj.image_url
+
+    def get_is_low_stock(self, obj):
+        return obj.is_low_stock
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):

@@ -109,3 +109,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Inter-service communication
 PRODUCTS_SERVICE_URL = os.environ.get('PRODUCTS_SERVICE_URL', 'http://products-service:8001/api/products/')
+INTERNAL_SERVICE_TOKEN = os.environ.get('INTERNAL_SERVICE_TOKEN', '')

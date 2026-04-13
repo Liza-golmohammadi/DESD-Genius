@@ -1,6 +1,9 @@
 from django.shortcuts import render
 
 from django.db.models import Q
+from django.db import transaction
+from django.conf import settings
+from django.utils.crypto import constant_time_compare
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
@@ -15,6 +18,14 @@ from .serializers import (
 
 def _is_producer(user) -> bool:
     return getattr(user, "is_authenticated", False) and getattr(user, "is_producer", False)
+
+
+def _is_internal_service_request(request) -> bool:
+    expected = getattr(settings, "INTERNAL_SERVICE_TOKEN", "")
+    if not expected:
+        return False
+    supplied = request.headers.get("X-Internal-Service-Token", "")
+    return constant_time_compare(supplied, expected)
 
 """ def _is_admin(user) -> bool:
     return getattr(user, "is_authenticated", False) and getattr(user, "role", None) == "admin" """
@@ -116,3 +127,84 @@ class ProductInventoryUpdateView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(ProductDetailSerializer(product, context={"request": request}).data)
+
+
+class ProductStockReserveView(APIView):
+    """
+    Internal endpoint used by checkout flow to atomically reserve stock.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, product_id: int):
+        if not _is_internal_service_request(request):
+            expected = getattr(settings, "INTERNAL_SERVICE_TOKEN", "")
+            supplied = request.headers.get("X-Internal-Service-Token", "")
+            print(f"[RESERVE] Forbidden: expected_token_set={bool(expected)} supplied_token_set={bool(supplied)} match={expected == supplied}")
+            return Response({"error": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
+        quantity = request.data.get("quantity")
+        try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            return Response({"error": "quantity must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if quantity <= 0:
+            return Response({"error": "quantity must be greater than 0."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            try:
+                product = Product.objects.select_for_update().get(id=product_id)
+            except Product.DoesNotExist:
+                return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            if not product.is_orderable():
+                return Response(
+                    {"error": "Product is not currently orderable."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if product.stock_quantity < quantity:
+                return Response(
+                    {
+                        "error": "Insufficient stock.",
+                        "available_stock": product.stock_quantity,
+                        "requested_quantity": quantity,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            product.stock_quantity -= quantity
+            product.save(update_fields=["stock_quantity", "updated_at"])
+
+        return Response({"product_id": product_id, "reserved_quantity": quantity}, status=status.HTTP_200_OK)
+
+
+class ProductStockReleaseView(APIView):
+    """
+    Internal compensating endpoint to release previously reserved stock.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, product_id: int):
+        if not _is_internal_service_request(request):
+            return Response({"error": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
+        quantity = request.data.get("quantity")
+        try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            return Response({"error": "quantity must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if quantity <= 0:
+            return Response({"error": "quantity must be greater than 0."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            try:
+                product = Product.objects.select_for_update().get(id=product_id)
+            except Product.DoesNotExist:
+                return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            product.stock_quantity += quantity
+            product.save(update_fields=["stock_quantity", "updated_at"])
+
+        return Response({"product_id": product_id, "released_quantity": quantity}, status=status.HTTP_200_OK)

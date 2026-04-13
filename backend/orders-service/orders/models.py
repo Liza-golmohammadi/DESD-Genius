@@ -50,8 +50,18 @@ VALID_STATUS_TRANSITIONS = {
 
 
 class Order(models.Model):
+    """
+    One order per producer per checkout.
+    A single customer checkout with items from 3 producers creates 3 Orders,
+    each with its own status, subtotal, and order_number.
+    """
     order_number = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    checkout_id = models.UUIDField(default=uuid.uuid4, db_index=True,
+                                   help_text='Groups orders from the same checkout session')
     customer_id = models.CharField(max_length=36, db_index=True)
+    producer_id = models.CharField(max_length=36, db_index=True, default='',
+                                   help_text='Producer who fulfils this order')
+    producer_name = models.CharField(max_length=255, default='')
     status = models.CharField(max_length=20, choices=ORDER_STATUS_CHOICES, default='pending')
     delivery_address = models.TextField(blank=True, default='')
     delivery_date = models.DateField(null=True, blank=True)
@@ -64,7 +74,7 @@ class Order(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Order {self.order_number} - customer {self.customer_id}"
+        return f"Order {self.order_number} - producer {self.producer_id}"
 
 
 class OrderItem(models.Model):

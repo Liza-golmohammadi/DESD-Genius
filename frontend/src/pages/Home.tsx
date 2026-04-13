@@ -162,6 +162,21 @@ function ProductCard({
 
         <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>{product.unit}</div>
 
+        <div style={{
+          fontSize: 12,
+          fontWeight: 600,
+          marginTop: 4,
+          color: product.stock_quantity <= 0 ? "#dc2626"
+            : product.stock_quantity <= 5 ? "#d97706"
+            : "#16a34a",
+        }}>
+          {product.stock_quantity <= 0
+            ? "Out of stock"
+            : product.stock_quantity <= 5
+            ? `Only ${product.stock_quantity} left`
+            : `${product.stock_quantity} in stock`}
+        </div>
+
         <button
           onClick={(e) => {
             e.stopPropagation();

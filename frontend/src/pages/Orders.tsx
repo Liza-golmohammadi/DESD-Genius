@@ -13,6 +13,7 @@ type OrderItem = {
 type Order = {
   id: number;
   order_number: string;
+  producer_name: string;
   status: string;
   subtotal: string;
   delivery_date: string | null;
@@ -79,9 +80,16 @@ const Orders = () => {
         orders.map((order) => (
           <Link key={order.id} to={`/orders/${order.order_number}`} style={s.card}>
             <div style={s.header}>
-              <span style={s.orderNum}>
-                Order #{order.order_number.slice(0, 8)}
-              </span>
+              <div>
+                <span style={s.orderNum}>
+                  Order #{order.order_number.slice(0, 8)}
+                </span>
+                {order.producer_name && (
+                  <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
+                    from <strong>{order.producer_name}</strong>
+                  </div>
+                )}
+              </div>
               <span style={s.badge(order.status)}>{order.status}</span>
             </div>
 

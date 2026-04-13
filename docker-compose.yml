@@ -66,6 +66,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgrespassword
       SECRET_KEY: django-insecure-shared-microservices-secret-key-change-in-production
+      INTERNAL_SERVICE_TOKEN: desd-internal-service-token
     depends_on:
       - products-db
     ports:
@@ -85,6 +86,7 @@ services:
       DB_PASSWORD: postgrespassword
       SECRET_KEY: django-insecure-shared-microservices-secret-key-change-in-production
       PRODUCTS_SERVICE_URL: http://products-service:8001/api/products/
+      INTERNAL_SERVICE_TOKEN: desd-internal-service-token
     depends_on:
       - orders-db
     ports:

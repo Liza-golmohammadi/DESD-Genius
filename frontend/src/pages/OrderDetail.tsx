@@ -14,6 +14,7 @@ type Order = {
   id: number;
   order_number: string;
   status: string;
+  producer_name: string;
   delivery_address: string;
   delivery_date: string | null;
   notes: string;
@@ -74,7 +75,14 @@ const OrderDetail = () => {
       {/* Order Header */}
       <div style={{ ...s.card, marginTop: 16 }}>
         <div style={s.header}>
-          <h1 style={s.title}>Order #{order.order_number.slice(0, 8)}</h1>
+          <div>
+            <h1 style={s.title}>Order #{order.order_number.slice(0, 8)}</h1>
+            {order.producer_name && (
+              <div style={{ fontSize: 14, color: "#6b7280", marginTop: 2 }}>
+                from <strong style={{ color: "#1b4332" }}>{order.producer_name}</strong>
+              </div>
+            )}
+          </div>
           <span style={s.badge(order.status)}>{order.status}</span>
         </div>
 

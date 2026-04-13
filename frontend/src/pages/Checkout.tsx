@@ -17,9 +17,23 @@ type CartData = {
   total: number;
 };
 
+type OrderItem = {
+  product_name: string;
+  quantity: number;
+  line_total: number;
+};
+
 type OrderResponse = {
   id: number;
   order_number: string;
+  producer_name: string;
+  subtotal: string;
+  items: OrderItem[];
+};
+
+type CheckoutResponse = {
+  checkout_id: string;
+  orders: OrderResponse[];
 };
 
 const s = {
@@ -33,7 +47,7 @@ const s = {
   totalRow: { display: "flex", justifyContent: "space-between", padding: "14px 0 0", fontSize: 18, fontWeight: 800, color: "#1b4332" } as React.CSSProperties,
   placeBtn: { width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "#1b4332", color: "#fff", fontWeight: 700, fontSize: 16, cursor: "pointer", marginTop: 12 } as React.CSSProperties,
   error: { marginTop: 12, padding: 12, borderRadius: 10, background: "#ffecec", border: "1px solid #ffc9c9", color: "#8a1f1f" } as React.CSSProperties,
-  success: { textAlign: "center", padding: "60px 20px" } as React.CSSProperties,
+  success: { textAlign: "center", padding: "48px 20px" } as React.CSSProperties,
 };
 
 const Checkout = () => {
@@ -42,7 +56,7 @@ const Checkout = () => {
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [orderPlaced, setOrderPlaced] = useState<OrderResponse | null>(null);
+  const [checkoutResult, setCheckoutResult] = useState<CheckoutResponse | null>(null);
 
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -66,12 +80,12 @@ const Checkout = () => {
     setPlacing(true);
     setError(null);
     try {
-      const res = await api.post<OrderResponse>("/api/orders/checkout/", {
+      const res = await api.post<CheckoutResponse>("/api/orders/checkout/", {
         delivery_address: deliveryAddress,
         delivery_date: deliveryDate || null,
         notes,
       });
-      setOrderPlaced(res.data);
+      setCheckoutResult(res.data);
     } catch (e: any) {
       const data = e?.response?.data;
       setError(data?.error || data?.detail || e?.message || "Failed to place order");
@@ -82,29 +96,66 @@ const Checkout = () => {
 
   if (loading) return <div style={s.page}><p>Loading…</p></div>;
 
-  if (orderPlaced) {
+  if (checkoutResult) {
+    const orderCount = checkoutResult.orders.length;
     return (
       <div style={s.page}>
         <div style={s.success as any}>
           <p style={{ fontSize: 64, margin: "0 0 16px" }}>🎉</p>
-          <h1 style={{ color: "#1b4332", marginBottom: 8 }}>Order Placed!</h1>
+          <h1 style={{ color: "#1b4332", marginBottom: 8 }}>Order{orderCount > 1 ? "s" : ""} Placed!</h1>
           <p style={{ color: "#6b7280", marginBottom: 24 }}>
-            Your order <strong>#{orderPlaced.order_number.slice(0, 8)}</strong> has been placed successfully.
+            {orderCount > 1
+              ? `Your order has been split into ${orderCount} orders (one per producer).`
+              : "Your order has been placed successfully."}
           </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <button
-              style={{ ...s.placeBtn, width: "auto", padding: "12px 24px" }}
-              onClick={() => navigate(`/orders/${orderPlaced.order_number}`)}
-            >
-              View Order
-            </button>
-            <button
-              style={{ ...s.placeBtn, width: "auto", padding: "12px 24px", background: "#fff", color: "#1b4332", border: "1px solid #d1d5db" }}
-              onClick={() => navigate("/")}
-            >
-              Continue Shopping
-            </button>
+        </div>
+
+        {/* Show each producer order */}
+        {checkoutResult.orders.map((order) => (
+          <div
+            key={order.order_number}
+            style={{ ...s.card, cursor: "pointer" }}
+            onClick={() => navigate(`/orders/${order.order_number}`)}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#1b4332" }}>
+                  Order #{order.order_number.slice(0, 8)}
+                </div>
+                <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>
+                  from <strong>{order.producer_name || "Producer"}</strong>
+                </div>
+              </div>
+              <span style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700, color: "#fff", background: "#f59e0b", textTransform: "capitalize" }}>
+                pending
+              </span>
+            </div>
+            {order.items.map((item, i) => (
+              <div key={i} style={s.row}>
+                <span>{item.product_name} × {item.quantity}</span>
+                <span>£{Number(item.line_total).toFixed(2)}</span>
+              </div>
+            ))}
+            <div style={{ ...s.totalRow, fontSize: 15 }}>
+              <span>Subtotal</span>
+              <span>£{parseFloat(order.subtotal).toFixed(2)}</span>
+            </div>
           </div>
+        ))}
+
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 12 }}>
+          <button
+            style={{ ...s.placeBtn, width: "auto", padding: "12px 24px" }}
+            onClick={() => navigate("/orders")}
+          >
+            View All Orders
+          </button>
+          <button
+            style={{ ...s.placeBtn, width: "auto", padding: "12px 24px", background: "#fff", color: "#1b4332", border: "1px solid #d1d5db" }}
+            onClick={() => navigate("/")}
+          >
+            Continue Shopping
+          </button>
         </div>
       </div>
     );

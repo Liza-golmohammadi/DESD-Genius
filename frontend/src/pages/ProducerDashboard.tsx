@@ -378,8 +378,9 @@ export default function ProducerDashboard() {
   }
 
   // ── Derived stats ─────────────────────────────────────────────────────────
-  const activeProducts = products.filter((p) => p.is_available && p.stock_quantity > 0).length;
-  const lowStock = products.filter((p) => p.is_low_stock).length;
+  const activeProducts = products.filter((p) => p.is_available && p.stock_quantity > 0 && !p.is_low_stock).length;
+  const lowStock = products.filter((p) => p.is_available && p.is_low_stock && p.stock_quantity > 0).length;
+  const outOfStock = products.filter((p) => p.is_available && p.stock_quantity <= 0).length;
   const pendingOrders = orders.filter((o) => o.status === "pending" || o.status === "confirmed").length;
   const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.producer_payout || "0"), 0);
 
@@ -413,10 +414,11 @@ export default function ProducerDashboard() {
           </div>
 
           <div style={{ display: "flex", gap: 14, marginTop: 24, flexWrap: "wrap" }}>
-            <StatCard label="Total Products" value={products.length} sub={`${activeProducts} active`} accent="#40916c" />
+            <StatCard label="Active" value={activeProducts} sub={`of ${products.length} products`} accent="#40916c" />
             <StatCard label="Low Stock" value={lowStock} sub="need restocking" accent={lowStock > 0 ? "#d97706" : "#40916c"} />
+            <StatCard label="Out of Stock" value={outOfStock} sub="unavailable" accent={outOfStock > 0 ? "#dc2626" : "#40916c"} />
             <StatCard label="Active Orders" value={pendingOrders} sub="pending/confirmed" accent="#3b82f6" />
-            <StatCard label="Total Revenue" value={`£${totalRevenue.toFixed(2)}`} sub="your payout" accent="#8b5cf6" />
+            <StatCard label="Revenue" value={`£${totalRevenue.toFixed(2)}`} sub="your payout" accent="#8b5cf6" />
           </div>
         </div>
       </div>
@@ -500,8 +502,21 @@ export default function ProducerDashboard() {
                           {p.is_low_stock && <span style={{ marginLeft: 6, fontSize: 11, color: "#d97706", fontWeight: 600 }}>⚠ Low</span>}
                         </td>
                         <td style={{ padding: "12px 16px" }}>
-                          <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: p.is_available ? "#d1fae5" : "#fee2e2", color: p.is_available ? "#065f46" : "#991b1b" }}>
-                            {p.is_available ? "Active" : "Hidden"}
+                          <span style={{
+                            padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700,
+                            background: !p.is_available ? "#fee2e2"
+                              : p.stock_quantity <= 0 ? "#fee2e2"
+                              : p.is_low_stock ? "#fef3c7"
+                              : "#d1fae5",
+                            color: !p.is_available ? "#991b1b"
+                              : p.stock_quantity <= 0 ? "#991b1b"
+                              : p.is_low_stock ? "#92400e"
+                              : "#065f46",
+                          }}>
+                            {!p.is_available ? "Hidden"
+                              : p.stock_quantity <= 0 ? "Out of Stock"
+                              : p.is_low_stock ? "Low Stock"
+                              : "Active"}
                           </span>
                           {p.organic_certified && <span style={{ marginLeft: 6, fontSize: 11, color: "#2d6a4f", fontWeight: 700 }}>🌿 Organic</span>}
                         </td>

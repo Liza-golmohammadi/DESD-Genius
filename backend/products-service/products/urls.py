@@ -6,4 +6,6 @@ urlpatterns = [
     path("", views.ProductListCreateView.as_view(), name="products-list-create"),
     path("<int:product_id>/", views.ProductDetailView.as_view(), name="product-detail"),
     path("<int:product_id>/inventory/", views.ProductInventoryUpdateView.as_view(), name="product-inventory"),
+    path("<int:product_id>/reserve/", views.ProductStockReserveView.as_view(), name="product-stock-reserve"),
+    path("<int:product_id>/release/", views.ProductStockReleaseView.as_view(), name="product-stock-release"),
 ]

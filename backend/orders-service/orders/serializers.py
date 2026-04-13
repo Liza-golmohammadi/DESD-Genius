@@ -47,16 +47,22 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+    """Order as seen by the customer."""
     items = OrderItemSerializer(many=True, read_only=True)
 
     class Meta:
         model = Order
         fields = [
-            'id', 'order_number', 'customer_id', 'status',
-            'delivery_address', 'delivery_date', 'notes',
+            'id', 'order_number', 'checkout_id', 'customer_id',
+            'producer_id', 'producer_name',
+            'status', 'delivery_address', 'delivery_date', 'notes',
             'subtotal', 'items', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'order_number', 'customer_id', 'status', 'subtotal', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id', 'order_number', 'checkout_id', 'customer_id',
+            'producer_id', 'producer_name',
+            'status', 'subtotal', 'created_at', 'updated_at',
+        ]
 
 
 class OrderCreateSerializer(serializers.Serializer):
@@ -66,9 +72,8 @@ class OrderCreateSerializer(serializers.Serializer):
 
 
 class ProducerOrderSerializer(serializers.ModelSerializer):
-    """Orders as seen by a producer — only their items and their subtotal/payout."""
-    items = serializers.SerializerMethodField()
-    subtotal = serializers.SerializerMethodField()
+    """Order as seen by the producer — each order already contains only their items."""
+    items = OrderItemSerializer(many=True, read_only=True)
     producer_payout = serializers.SerializerMethodField()
 
     class Meta:
@@ -78,20 +83,9 @@ class ProducerOrderSerializer(serializers.ModelSerializer):
             'subtotal', 'producer_payout', 'items', 'created_at',
         ]
 
-    def _producer_items(self, obj):
-        producer_id = self.context.get('producer_id')
-        return [item for item in obj.items.all() if str(item.producer_id) == str(producer_id)]
-
-    def get_items(self, obj):
-        return OrderItemSerializer(self._producer_items(obj), many=True).data
-
-    def get_subtotal(self, obj):
-        return float(sum(item.line_total for item in self._producer_items(obj)))
-
     def get_producer_payout(self, obj):
-        subtotal = sum(item.line_total for item in self._producer_items(obj))
         # 95% payout (5% platform commission)
-        return float(subtotal * 95 / 100)
+        return float(obj.subtotal * 95 / 100)
 
 
 class OrderStatusUpdateSerializer(serializers.Serializer):
