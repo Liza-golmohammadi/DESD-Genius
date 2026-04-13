@@ -22,6 +22,7 @@ type Product = {
   available_from: string | null;
   available_to: string | null;
   category: Category;
+  producer_id: string;
   producer_name: string;
 };
 
@@ -53,7 +54,8 @@ function formatPrice(value: string | number) {
 function resolveImageUrl(url: string | null) {
   if (!url) return null;
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  return `http://127.0.0.1:8000${url}`;
+  // Relative URL — works through nginx proxy
+  return url;
 }
 
 // ── Product card ─────────────────────────────────────────────────────────────
@@ -139,7 +141,7 @@ function ProductCard({
 
       <div style={{ padding: "12px 14px 14px" }}>
         <div style={{ fontSize: 13, color: "#888", marginBottom: 2 }}>
-          {product.producer_name} · {product.category?.name || "Uncategorized"}
+          {(product.producer_name || product.producer_id) } · {product.category?.name || "Uncategorized"}
         </div>
 
         <div
@@ -234,7 +236,7 @@ export default function Home() {
   }, []);
 
   const producerNames = useMemo(() => {
-    return Array.from(new Set(products.map((p) => p.producer_name))).sort((a, b) =>
+    return Array.from(new Set(products.map((p) => p.producer_name || p.producer_id))).sort((a, b) =>
       a.localeCompare(b)
     );
   }, [products]);
@@ -247,7 +249,7 @@ export default function Home() {
       list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
-          p.producer_name.toLowerCase().includes(q) ||
+          ((p.producer_name || p.producer_id) && (p.producer_name || p.producer_id).toLowerCase().includes(q)) ||
           p.category?.name.toLowerCase().includes(q)
       );
     }
@@ -261,7 +263,7 @@ export default function Home() {
     }
 
     if (activeProducers.length > 0) {
-      list = list.filter((p) => activeProducers.includes(p.producer_name));
+      list = list.filter((p) => activeProducers.includes(p.producer_name || p.producer_id));
     }
 
     if (sortBy === "price-asc") list.sort((a, b) => Number(a.price) - Number(b.price));
@@ -277,7 +279,7 @@ export default function Home() {
         (p) =>
           p.category?.id === cat.id &&
           (!organicOnly || p.organic_certified) &&
-          (activeProducers.length === 0 || activeProducers.includes(p.producer_name))
+          (activeProducers.length === 0 || activeProducers.includes(p.producer_name || p.producer_id))
       ).length;
       return acc;
     }, {} as Record<number, number>);
@@ -300,7 +302,7 @@ export default function Home() {
       setActionMessage("");
       setAddingProductId(productId);
 
-      await api.post("/api/cart/items/", {
+      await api.post("/api/orders/cart/items/", {
         product_id: productId,
         quantity: 1,
       });

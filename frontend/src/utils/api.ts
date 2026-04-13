@@ -1,12 +1,13 @@
 import axios, { AxiosError } from "axios";
 import type { InternalAxiosRequestConfig } from "axios";
 
+// In Docker, all requests go through nginx on the same origin (relative URLs).
+// For local dev outside Docker, set VITE_API_URL to http://localhost (nginx gateway).
 const baseURL =
-  (import.meta as any).env?.VITE_API_URL || "http://localhost:8000"; // ajsdkfal
+  (import.meta as any).env?.VITE_API_URL ?? "";
 
 const api = axios.create({
   baseURL,
-  
 });
 
 // Attach access token to every request

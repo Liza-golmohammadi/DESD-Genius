@@ -253,12 +253,12 @@ export default function User() {
     setErr(null);
 
     try {
-      await api.patch("/api/auth_service/user/", {
+      await api.patch("/api/auth_service/me/", {
         address,
         postcode,
       });
 
-      const refreshed = await api.get<UserProfile>("/api/auth_service/user/");
+      const refreshed = await api.get<UserProfile>("/api/auth_service/me/");
       setProfile(refreshed.data);
       setAddress(String(refreshed.data.address ?? ""));
       setPostcode(String(refreshed.data.postcode ?? ""));

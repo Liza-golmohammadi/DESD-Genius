@@ -23,6 +23,7 @@ class CustomUserManager(UserManager):
 
 
 class User(AbstractUser):
+	id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 	class CustomerRole(models.TextChoices):
 		INDIVIDUAL = 'individual', 'Individual'
 		COMMUNITY = 'community_group', 'Community Group'
@@ -55,6 +56,7 @@ class User(AbstractUser):
 
 	def mark_terms_accepted(self):
 		self.accepted_terms_at = timezone.now()
+		self.save()
 
 
 class ProducerProfile(models.Model):

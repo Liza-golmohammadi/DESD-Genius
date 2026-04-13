@@ -1,5 +1,5 @@
 from .models import ProducerProfile
-from .serializers import UserUpdateSerializer, CustomerRegisterSerializer, ProducerRegisterSerializer, ProducerListSerializer, ProducerDetailSerializer
+from .serializers import UserUpdateSerializer, CustomerRegisterSerializer, ProducerRegisterSerializer, ProducerListSerializer, ProducerProfileSerializer, CustomTokenObtainPairSerializer
 from rest_framework import generics, permissions, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
@@ -8,6 +8,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework.exceptions import NotFound
 from django.contrib.auth import get_user_model, authenticate
+from rest_framework import viewsets
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+
 
 User = get_user_model()
 
@@ -56,7 +60,7 @@ class LogoutView(APIView):
 			return Response({"error": "Invalid or expired token"}, status=400)
 		return Response({"message": "Logged out successfully"})
 	
-class ProducerListView(generics.ListAPIView):
+""" class ProducerListView(generics.ListAPIView):
 	queryset = ProducerProfile.objects.select_related('user').all()
 	serializer_class = ProducerListSerializer
 	permission_classes = [AllowAny]
@@ -66,4 +70,12 @@ class ProducerDetailView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return ProducerProfile.objects.all().select_related('user')
+        return ProducerProfile.objects.all().select_related('user') """
+
+
+class ProducerViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ProducerProfile.objects.select_related('user')
+    serializer_class = ProducerListSerializer
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer

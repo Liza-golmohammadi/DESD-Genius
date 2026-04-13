@@ -92,7 +92,10 @@ const Signup = () => {
       if (axios.isAxiosError(err)) {
         const data = err.response?.data as Record<string, string[]> | undefined;
         if (data) {
-          console.log(data)
+          const message = Object.entries(data)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+            .join("\n");
+          setError(message);
         } else {
           setError("Registration failed");
         }

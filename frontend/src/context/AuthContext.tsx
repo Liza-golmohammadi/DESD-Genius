@@ -93,7 +93,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
       const res = await api.get<User>("/api/auth_service/me/");
       setUser(res.data);
-      console.log(res.data)
       if (res.data.producer_profile) {
         navigate("/producer/dashboard");
       } else {

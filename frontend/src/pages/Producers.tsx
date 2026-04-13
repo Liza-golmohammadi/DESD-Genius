@@ -24,7 +24,6 @@ export default function Producers() {
       try {
         setError(null);
         const res = await api.get<Producer[]>("/api/auth_service/producers/");
-        console.log(res.data)
         setItems(res.data);
       } catch (e: any) {
         setError(e?.message || "Failed to load producers");

@@ -14,10 +14,10 @@ from .serializers import (
 )
 
 def _is_producer(user) -> bool:
-    return getattr(user, "is_authenticated", False) and getattr(user, "role", None) == "producer"
+    return getattr(user, "is_authenticated", False) and getattr(user, "is_producer", False)
 
-def _is_admin(user) -> bool:
-    return getattr(user, "is_authenticated", False) and getattr(user, "role", None) == "admin"
+""" def _is_admin(user) -> bool:
+    return getattr(user, "is_authenticated", False) and getattr(user, "role", None) == "admin" """
 
 
 class CategoryListView(APIView):
@@ -32,13 +32,16 @@ class ProductListCreateView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        qs = Product.objects.select_related("category", "producer")
+        qs = Product.objects.select_related("category")
 
-        if _is_admin(request.user):
-            pass
+        # ?mine=true — producer dashboard: only this producer's products
+        mine_only = request.query_params.get("mine", "").lower() == "true"
+
+        if _is_producer(request.user) and mine_only:
+            qs = qs.filter(producer_id=str(request.user.id))
         elif _is_producer(request.user):
             public_ids = Product.objects.visible_to_customers().values_list("id", flat=True)
-            qs = qs.filter(Q(id__in=public_ids) | Q(producer=request.user))
+            qs = qs.filter(Q(id__in=public_ids) | Q(producer_id=str(request.user.id)))
         else:
             qs = qs.visible_to_customers()
 
@@ -64,7 +67,8 @@ class ProductListCreateView(APIView):
 
         serializer = ProductCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        product = serializer.save(producer=request.user)
+        producer_name = getattr(request.user, 'store_name', '') or ''
+        product = serializer.save(producer_id=request.user.id, producer_name=producer_name)
         return Response(ProductDetailSerializer(product, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
@@ -73,14 +77,14 @@ class ProductDetailView(APIView):
 
     def get(self, request, product_id: int):
         try:
-            product = Product.objects.select_related("category", "producer").get(id=product_id)
+            product = Product.objects.select_related("category").get(id=product_id)
         except Product.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         if not product.is_orderable():
-            if _is_admin(request.user):
-                pass
-            elif _is_producer(request.user) and product.producer_id == request.user.id:
+            """ if _is_admin(request.user):
+                pass """
+            if _is_producer(request.user) and str(product.producer_id) == str(request.user.id):
                 pass
             else:
                 return Response(status=status.HTTP_404_NOT_FOUND)
@@ -100,7 +104,7 @@ class ProductInventoryUpdateView(APIView):
         except Product.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        if product.producer_id != request.user.id:
+        if str(product.producer_id) != str(request.user.id):
             return Response({"error": "You can only update your own products."}, status=status.HTTP_403_FORBIDDEN)
 
         allowed_fields = {"stock_quantity", "low_stock_threshold", "is_available", "available_from", "available_to"}

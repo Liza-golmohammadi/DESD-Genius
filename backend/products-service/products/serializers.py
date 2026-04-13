@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Category, Product
-
+import requests
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -21,8 +21,9 @@ class ProductListSerializer(serializers.ModelSerializer):
             "image", "image_source",
             "stock_quantity", "is_available", "organic_certified",
             "available_from", "available_to", "category",
-            "farm_origin", "food_miles",
+            "farm_origin", "food_miles", "producer_id", "producer_name",
         ]
+        # read_only_fields= ['producer_id']
 
     """ def get_producer_name(self, obj):
         return obj.producer.get_full_name() or obj.producer.username """
@@ -38,7 +39,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
-    #producer_name = serializers.SerializerMethodField()
+    # producer_name = serializers.SerializerMethodField()
     is_in_season = serializers.SerializerMethodField()
     is_low_stock = serializers.SerializerMethodField()
     image = serializers.ImageField(read_only=True)
@@ -53,7 +54,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "available_from", "available_to", "is_in_season", "is_low_stock",
             "allergens", "organic_certified", "harvest_date",
             "category", "created_at", "updated_at",
-            "farm_origin", "food_miles",
+            "farm_origin", "food_miles", "producer_id", "producer_name",
         ]
 
     """ def get_producer_name(self, obj):
@@ -75,6 +76,10 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 
 class ProductCreateSerializer(serializers.ModelSerializer):
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), required=False, allow_null=True
+    )
+
     class Meta:
         model = Product
         fields = [
@@ -91,3 +96,6 @@ class ProductCreateSerializer(serializers.ModelSerializer):
         if af and at and af > at:
             raise serializers.ValidationError("available_from must be <= available_to.")
         return attrs
+    
+    
+    

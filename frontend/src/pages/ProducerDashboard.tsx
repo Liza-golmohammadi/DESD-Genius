@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../utils/api";
+
 import useAuth from "../context/useAuth";
 
 type ProducerProfile = {
@@ -69,9 +70,9 @@ const NEXT_STATUSES: Record<string, string[]> = {
 };
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  pending:   { bg: "#fef3c7", color: "#92400e" },
+  pending: { bg: "#fef3c7", color: "#92400e" },
   confirmed: { bg: "#dbeafe", color: "#1e40af" },
-  ready:     { bg: "#d1fae5", color: "#065f46" },
+  ready: { bg: "#d1fae5", color: "#065f46" },
   delivered: { bg: "#e0e7ff", color: "#3730a3" },
   cancelled: { bg: "#fee2e2", color: "#991b1b" },
 };
@@ -139,7 +140,7 @@ function ProductModal({ categories, initial, onClose, onSaved }: { categories: C
         price: parseFloat(form.price),
         stock_quantity: parseInt(form.stock_quantity),
         low_stock_threshold: parseInt(form.low_stock_threshold),
-        category: parseInt(form.category),
+        category: form.category ? parseInt(form.category) : null,
         available_from: form.available_from || null,
         available_to: form.available_to || null,
       };
@@ -194,8 +195,9 @@ function ProductModal({ categories, initial, onClose, onSaved }: { categories: C
               </div>
               <div style={{ display: "flex", gap: 12 }}>
                 <div style={half}>
-                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>Category *</label>
-                  <select required style={inp} value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>Category</label>
+                  <select style={inp} value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+                    <option value="">— No category —</option>
                     {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
@@ -292,7 +294,7 @@ export default function ProducerDashboard() {
   async function loadProfile() {
     setProfileLoading(true);
     try {
-      const res = await api.get<ProducerMe>("/accounts/auth/me/");
+      const res = await api.get<ProducerMe>("/api/auth_service/me/");
       setProfile(res.data);
       setUser(res.data as any);
       setStoreName(res.data.producer_profile?.store_name ?? "");
@@ -308,7 +310,7 @@ export default function ProducerDashboard() {
   async function loadProducts() {
     setProductsLoading(true);
     try {
-      const res = await api.get<Product[]>("/api/products/");
+      const res = await api.get<Product[]>("/api/products/?mine=true");
       setProducts(res.data);
     } catch {
       // silently fail — shown as empty table
@@ -346,7 +348,7 @@ export default function ProducerDashboard() {
     setProfileMsg(null);
     setProfileErr(null);
     try {
-      await api.patch("/accounts/auth/me/", {
+      await api.patch("/api/auth_service/me/", {
         producer_profile: {
           store_name: storeName,
           store_description: storeDescription,
@@ -366,11 +368,13 @@ export default function ProducerDashboard() {
   async function updateOrderStatus(orderId: number, newStatus: string) {
     setStatusUpdating(orderId);
     try {
-      await api.patch(`/api/orders/producer/${orderId}/status/`, { status: newStatus, note: "" });
+      await api.patch(`/api/orders/producer/${orderId}/status/`, { status: newStatus});
       await loadOrders();
-    } catch { /* ignore */ } finally {
-      setStatusUpdating(null);
-    }
+    } catch (e) {
+    console.error("Status update failed:", e); // add this
+  } finally {
+    setStatusUpdating(null);
+  }
   }
 
   // ── Derived stats ─────────────────────────────────────────────────────────
