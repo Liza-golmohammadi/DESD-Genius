@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'recipes',
 	'rest_framework_simplejwt.token_blacklist',
     'payments',
+    'ai_service',
 ]
 
 MIDDLEWARE = [
