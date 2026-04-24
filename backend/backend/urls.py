@@ -23,6 +23,9 @@ urlpatterns = [
     path("api/recipes/", include("recipes.urls")),
     path("api/payments/", include("payments.urls")),
 
+    #  AI SERVICE
+    path("api/ai/", include("ai_service.urls")),
+
     path("accounts-auth/", include("rest_framework.urls")),
     path("accounts/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("accounts/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
