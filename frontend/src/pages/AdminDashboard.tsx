@@ -3,6 +3,30 @@ import api from "../api";
 import AdminUsers from "./AdminUsers";
 import AdminOrders from "./AdminOrders";
 
+// ── AI Insights types ─────────────────────────────────────────────────────────
+type AiAdminInsights = {
+  total_assessments: number;
+  grade_distribution: { A: number; B: number; C: number };
+  override_rate: number;
+  top_recommended_products: { product__name: string; count: number }[];
+  producer_quality_ranking: {
+    producer__email: string;
+    avg_colour: number;
+    avg_size: number;
+    avg_ripeness: number;
+    total: number;
+  }[];
+  fairness_alerts: Record<string, unknown>;
+  model_performance: {
+    name?: string;
+    version?: string;
+    accuracy?: number;
+    f1_score?: number;
+    is_mock?: boolean;
+  };
+  interaction_volume_chart: string | null;
+};
+
 type ReportsData = {
   user_summary: {
     total_users: number;
@@ -31,7 +55,7 @@ type ReportsData = {
   }[];
 };
 
-const TABS = ["Overview", "Users", "Orders"] as const;
+const TABS = ["Overview", "Users", "Orders", "AI Insights"] as const;
 type Tab = (typeof TABS)[number];
 
 const AdminDashboard = () => {
@@ -40,6 +64,10 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [aiData, setAiData] = useState<AiAdminInsights | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   useEffect(() => {
     api
       .get<ReportsData>("/api/admin/reports/")
@@ -47,6 +75,16 @@ const AdminDashboard = () => {
       .catch(() => setError("Failed to load dashboard data."))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (tab !== "AI Insights" || aiData || aiLoading) return;
+    setAiLoading(true);
+    api
+      .get<AiAdminInsights>("/api/ai/admin/insights/")
+      .then((res) => setAiData(res.data))
+      .catch(() => setAiError("Failed to load AI insights."))
+      .finally(() => setAiLoading(false));
+  }, [tab]);
 
   /* ── shared styles ──────────────────────────── */
   const card: React.CSSProperties = {
@@ -258,6 +296,175 @@ const AdminDashboard = () => {
     );
   }
 
+  /* ── AI insights content ────────────────────── */
+  function renderAiInsights() {
+    if (aiLoading) return <p style={{ opacity: 0.6, padding: 20 }}>Loading AI insights…</p>;
+    if (aiError || !aiData) return <p style={{ color: "#b71c1c", padding: 20 }}>{aiError ?? "No data."}</p>;
+
+    const gd = aiData.grade_distribution;
+    const total = aiData.total_assessments || 1;
+    const gradeColors: Record<string, { bg: string; fg: string; bar: string }> = {
+      A: { bg: "#d1fae5", fg: "#065f46", bar: "#10b981" },
+      B: { bg: "#fef3c7", fg: "#92400e", bar: "#f59e0b" },
+      C: { bg: "#fee2e2", fg: "#991b1b", bar: "#ef4444" },
+    };
+
+    return (
+      <>
+        {/* Summary cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
+          {[
+            { label: "Total Assessments", value: aiData.total_assessments },
+            { label: "Grade A", value: `${gd.A} (${((gd.A / total) * 100).toFixed(0)}%)` },
+            { label: "Grade B", value: `${gd.B} (${((gd.B / total) * 100).toFixed(0)}%)` },
+            { label: "Grade C", value: `${gd.C} (${((gd.C / total) * 100).toFixed(0)}%)` },
+            { label: "Override Rate", value: `${aiData.override_rate}%` },
+          ].map((s) => (
+            <div key={s.label} style={card}>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "#6b7280" }}>{s.label}</p>
+              <h2 style={{ margin: "0.4rem 0 0", fontSize: "1.6rem", color: "#1f4d3a" }}>{s.value}</h2>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "1.5rem" }}>
+
+          {/* Grade distribution bar chart */}
+          <div style={card}>
+            <h3 style={{ margin: "0 0 1rem", fontSize: "1.05rem", color: "#1f4d3a" }}>Grade Distribution</h3>
+            {aiData.total_assessments === 0 ? (
+              <p style={{ color: "#aaa", fontSize: 13 }}>No assessments yet.</p>
+            ) : (
+              (["A", "B", "C"] as const).map((g) => {
+                const count = gd[g];
+                const pct = (count / total) * 100;
+                const gc = gradeColors[g];
+                return (
+                  <div key={g} style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <span style={{ width: 22, height: 22, borderRadius: 5, background: gc.bg, color: gc.fg, fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{g}</span>
+                        <span style={{ fontSize: 13 }}>Grade {g}</span>
+                      </div>
+                      <span style={{ fontSize: 12, color: "#6b7280" }}>{count} ({pct.toFixed(1)}%)</span>
+                    </div>
+                    <div style={{ height: 9, background: "#f3f4f6", borderRadius: 5, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: gc.bar, borderRadius: 5, transition: "width 0.6s" }} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Model performance */}
+          <div style={card}>
+            <h3 style={{ margin: "0 0 1rem", fontSize: "1.05rem", color: "#1f4d3a" }}>Active Model Performance</h3>
+            {!aiData.model_performance?.name ? (
+              <p style={{ color: "#aaa", fontSize: 13 }}>No active model registered.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ background: "#f0fdf4", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>Model</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1f4d3a" }}>{aiData.model_performance.name} v{aiData.model_performance.version}</div>
+                  {aiData.model_performance.is_mock && (
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#92400e", background: "#fef3c7", borderRadius: 4, padding: "2px 6px" }}>DEMO MODE</span>
+                  )}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ background: "#f8fafc", borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Accuracy</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#1f4d3a", marginTop: 2 }}>
+                      {aiData.model_performance.accuracy != null ? `${(aiData.model_performance.accuracy * 100).toFixed(1)}%` : "—"}
+                    </div>
+                  </div>
+                  <div style={{ background: "#f8fafc", borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 11, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>F1 Score</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#1f4d3a", marginTop: 2 }}>
+                      {aiData.model_performance.f1_score != null ? aiData.model_performance.f1_score.toFixed(3) : "—"}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "#6b7280", fontFamily: "monospace", background: "#f9fafb", borderRadius: 8, padding: "8px 12px" }}>
+                  Architecture: MobileNetV2 (transfer learning) · Grades: A / B / C
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Top recommended products + producer ranking */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "1.5rem" }}>
+
+          <div style={card}>
+            <h3 style={{ margin: "0 0 1rem", fontSize: "1.05rem", color: "#1f4d3a" }}>Top Recommended Products</h3>
+            {aiData.top_recommended_products.length === 0 ? (
+              <p style={{ color: "#aaa", fontSize: 13 }}>No recommendation data yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {aiData.top_recommended_products.map((p, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f0f0f0", fontSize: 14 }}>
+                    <span style={{ fontWeight: i < 3 ? 700 : 400 }}>{p["product__name"]}</span>
+                    <span style={{ background: "#dbeafe", color: "#1e40af", borderRadius: 6, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>{p.count} purchases</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={card}>
+            <h3 style={{ margin: "0 0 1rem", fontSize: "1.05rem", color: "#1f4d3a" }}>Producer Quality Ranking</h3>
+            {aiData.producer_quality_ranking.length === 0 ? (
+              <p style={{ color: "#aaa", fontSize: 13 }}>No assessment data yet.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                      {["Producer", "Colour", "Size", "Ripeness", "Assessments"].map((h) => (
+                        <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontWeight: 700, color: "#6b7280", fontSize: 11, textTransform: "uppercase" as const }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aiData.producer_quality_ranking.map((p, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                        <td style={{ padding: "8px 10px", fontSize: 12, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p["producer__email"]}</td>
+                        <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1f4d3a" }}>{p.avg_colour?.toFixed(0)}%</td>
+                        <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1f4d3a" }}>{p.avg_size?.toFixed(0)}%</td>
+                        <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1f4d3a" }}>{p.avg_ripeness?.toFixed(0)}%</td>
+                        <td style={{ padding: "8px 10px", color: "#6b7280" }}>{p.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Interaction volume chart */}
+        {aiData.interaction_volume_chart && (
+          <div style={{ ...card, marginBottom: "1.5rem" }}>
+            <h3 style={{ margin: "0 0 1rem", fontSize: "1.05rem", color: "#1f4d3a" }}>Recommendation Interaction Volume</h3>
+            <img
+              src={`data:image/png;base64,${aiData.interaction_volume_chart}`}
+              alt="Interaction volume chart"
+              style={{ width: "100%", borderRadius: 8, maxHeight: 300, objectFit: "contain" }}
+            />
+          </div>
+        )}
+
+        {/* Model footer */}
+        <div style={{ padding: "12px 16px", background: "#f0fdf4", borderRadius: 10, border: "1px solid #bbf7d0", fontSize: 12, color: "#065f46", display: "flex", gap: 20, flexWrap: "wrap" }}>
+          <span>Algorithm: <strong>Hybrid Quality-Aware Collaborative v1</strong></span>
+          <span>XAI: <strong>Two-tier (technical + plain-English)</strong></span>
+          <span>GDPR: <strong>Right-to-erasure endpoint active</strong></span>
+        </div>
+      </>
+    );
+  }
+
   /* ── main render ────────────────────────────── */
   return (
     <div
@@ -330,6 +537,7 @@ const AdminDashboard = () => {
         {tab === "Overview" && renderOverview()}
         {tab === "Users" && <AdminUsers />}
         {tab === "Orders" && <AdminOrders />}
+        {tab === "AI Insights" && renderAiInsights()}
       </div>
     </div>
   );

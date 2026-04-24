@@ -52,8 +52,6 @@ INSTALLED_APPS = [
     'orders',
     'recipes',
     'payments',
-
-    # ✅ NEW AI APP
     'ai_service',
 ]
 

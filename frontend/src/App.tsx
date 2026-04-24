@@ -43,196 +43,171 @@ function Logout() {
 function Layout() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchInput, setSearchInput] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const isAuthed = !!localStorage.getItem("access");
   const isProducer = !!user?.producer_profile;
 
+  // Close menu on route change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  // Responsive breakpoint
+  useEffect(() => {
+    function check() {
+      setIsMobile(window.innerWidth < 1080);
+    }
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     navigate(`/?q=${encodeURIComponent(searchInput.trim())}`);
+    setMenuOpen(false);
   }
 
-  const headerWrap: React.CSSProperties = {
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-    background: "#1b4332",
-    borderBottom: "1px solid #2d6a4f",
-  };
+  /* ── Shared nav links (rendered in row OR dropdown) ── */
+  const navLinks = (
+    <>
+      <NavLink to="/" style={pill} end>Home</NavLink>
+      {isAuthed && <NavLink to="/producers" style={pill}>Producers</NavLink>}
+      {isAuthed && isProducer && <NavLink to="/producer/dashboard" style={pill}>Dashboard</NavLink>}
+      {isAuthed && !isProducer && <NavLink to="/orders" style={pill}>Orders</NavLink>}
+      {isAuthed && user?.role === "admin" && <NavLink to="/admin" style={pill}>Admin</NavLink>}
+      <NavLink to="/rescue-market" style={pill}>Rescue</NavLink>
+      <NavLink to="/sustainability" style={pill}>Sustainability</NavLink>
+      <NavLink to="/community" style={pill}>Community</NavLink>
+      <NavLink to="/resolution-center" style={pill}>Resolution</NavLink>
+    </>
+  );
 
-  const headerInner: React.CSSProperties = {
-    maxWidth: 1200,
-    margin: "0 auto",
-    padding: "13px 20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-  };
-
-  const brand: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    fontWeight: 800,
-    letterSpacing: 0.2,
-    color: "#fff",
-    fontSize: 15,
-    textDecoration: "none",
-    whiteSpace: "nowrap",
-  };
-
-  const navRow: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    flexWrap: "wrap",
-  };
-
-  const pill = ({ isActive }: { isActive: boolean }): React.CSSProperties => ({
-    padding: "8px 14px",
-    borderRadius: 10,
-    border: isActive ? "1px solid #40916c" : "1px solid transparent",
-    textDecoration: "none",
-    fontWeight: 600,
-    fontSize: 14,
-    color: isActive ? "#fff" : "rgba(255,255,255,0.75)",
-    background: isActive ? "#2d6a4f" : "transparent",
-    transition: "background 0.15s, color 0.15s",
-  });
-
-  const meta: React.CSSProperties = {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.65)",
-    padding: "7px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.15)",
-    maxWidth: 200,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-
-  const authBtn = (active = false): React.CSSProperties => ({
-    padding: "8px 16px",
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.3)",
-    textDecoration: "none",
-    fontWeight: 700,
-    fontSize: 13,
-    color: active ? "#1b4332" : "#fff",
-    background: active ? "#fff" : "transparent",
-    cursor: "pointer",
-  });
+  /* ── Pill style (works for both inline & dropdown) ── */
+  function pill({ isActive }: { isActive: boolean }): React.CSSProperties {
+    return {
+      padding: "7px 13px",
+      borderRadius: 8,
+      border: isActive ? "1px solid #40916c" : "1px solid transparent",
+      textDecoration: "none",
+      fontWeight: 600,
+      fontSize: 13,
+      color: isActive ? "#fff" : "rgba(255,255,255,0.75)",
+      background: isActive ? "#2d6a4f" : "transparent",
+      transition: "background 0.15s, color 0.15s",
+      whiteSpace: "nowrap",
+    };
+  }
 
   return (
     <>
-      <div style={headerWrap}>
-        <div style={headerInner}>
-          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-            <NavLink to="/" style={brand}>
-              <svg width={22} height={22} viewBox="0 0 24 24" fill="#40916c">
-                <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 0-5 8" />
-              </svg>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 900, letterSpacing: 0.5 }}>
-                  BRISTOL
-                </div>
-                <div style={{ fontSize: 9, letterSpacing: 1.5, opacity: 0.75, marginTop: -2 }}>
-                  REGIONAL FOOD NETWORK
-                </div>
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          background: "#1b4332",
+          borderBottom: "1px solid #2d6a4f",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1280,
+            margin: "0 auto",
+            padding: "0 20px",
+            height: 56,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          {/* ── Brand ── */}
+          <NavLink
+            to="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              textDecoration: "none",
+              color: "#fff",
+              flexShrink: 0,
+            }}
+          >
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="#52b788">
+              <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 0-5 8" />
+            </svg>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: 0.5, lineHeight: 1 }}>
+                BRISTOL
               </div>
-            </NavLink>
+              <div style={{ fontSize: 8, letterSpacing: 1.5, opacity: 0.6, lineHeight: 1, marginTop: 1 }}>
+                REGIONAL FOOD NETWORK
+              </div>
+            </div>
+          </NavLink>
 
-            <nav style={navRow}>
-              <NavLink to="/" style={pill} end>
-                Home
-              </NavLink>
-
-              {isAuthed && (
-                <NavLink to="/producers" style={pill}>
-                  Our Producers
-                </NavLink>
-              )}
-
-              {isAuthed && isProducer && (
-                <NavLink to="/producer/dashboard" style={pill}>
-                  Dashboard
-                </NavLink>
-              )}
-
-              {isAuthed && !isProducer && (
-                <NavLink to="/orders" style={pill}>
-                  My Orders
-                </NavLink>
-              )}
-
-              {isAuthed && user?.role === "admin" && (
-                <NavLink to="/admin" style={pill}>
-                  Admin Panel
-                </NavLink>
-              )}
-
-              <NavLink to="/rescue-market" style={pill}>
-                Rescue Market
-              </NavLink>
-
-              <NavLink to="/sustainability" style={pill}>
-                Sustainability
-              </NavLink>
-
-              <NavLink to="/community" style={pill}>
-                Community
-              </NavLink>
-
-              {/* ✅ NEW: Resolution Center link */}
-              <NavLink to="/resolution-center" style={pill}>
-                Resolution Center
-              </NavLink>
+          {/* ── Desktop nav links ── */}
+          {!isMobile && (
+            <nav style={{ display: "flex", alignItems: "center", gap: 2, marginLeft: 8 }}>
+              {navLinks}
             </nav>
-          </div>
+          )}
 
+          {/* ── Spacer ── */}
+          <div style={{ flex: 1 }} />
+
+          {/* ── Search bar ── */}
           <form
             onSubmit={handleSearch}
-            style={{ flex: 1, maxWidth: 420, display: "flex", margin: "0 12px" }}
+            style={{
+              display: "flex",
+              maxWidth: isMobile ? 180 : 280,
+              flex: 1,
+            }}
           >
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search fresh produce, farms, or artisan goods..."
+              placeholder="Search..."
               style={{
                 flex: 1,
-                padding: "9px 16px",
+                padding: "7px 12px",
                 border: "none",
-                borderRadius: "10px 0 0 10px",
-                fontSize: 14,
+                borderRadius: "8px 0 0 8px",
+                fontSize: 13,
                 outline: "none",
                 background: "rgba(255,255,255,0.12)",
                 color: "#fff",
+                minWidth: 0,
               }}
             />
             <button
               type="submit"
               style={{
-                padding: "9px 14px",
+                padding: "7px 10px",
                 border: "none",
-                borderRadius: "0 10px 10px 0",
+                borderRadius: "0 8px 8px 0",
                 background: "#40916c",
                 color: "#fff",
                 cursor: "pointer",
-                fontSize: 14,
+                fontSize: 13,
+                flexShrink: 0,
               }}
             >
               &#128269;
             </button>
           </form>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <NavLink to="/cart" style={{ position: "relative", cursor: "pointer", display: "flex" }}>
+          {/* ── Cart icon (hidden for producers) ── */}
+          {!isProducer && (
+            <NavLink to="/cart" style={{ display: "flex", flexShrink: 0 }}>
               <svg
-                width={24}
-                height={24}
+                width={22}
+                height={22}
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="rgba(255,255,255,0.85)"
@@ -243,25 +218,147 @@ function Layout() {
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
             </NavLink>
+          )}
 
-            {isAuthed && user?.email && <span style={meta}>{user.email}</span>}
+          {/* ── User email (desktop only) ── */}
+          {!isMobile && isAuthed && user?.email && (
+            <span
+              style={{
+                fontSize: 12,
+                color: "rgba(255,255,255,0.6)",
+                padding: "5px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.12)",
+                maxWidth: 160,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                flexShrink: 1,
+              }}
+            >
+              {user.email}
+            </span>
+          )}
 
-            {!isAuthed ? (
-              <>
-                <NavLink to="/login" style={() => authBtn()}>
-                  Login
-                </NavLink>
-                <NavLink to="/signup" style={() => authBtn(true)}>
-                  Sign up
-                </NavLink>
-              </>
-            ) : (
-              <NavLink to="/logout" style={() => authBtn()}>
-                Logout
+          {/* ── Auth buttons ── */}
+          {!isAuthed ? (
+            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+              <NavLink
+                to="/login"
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: "#fff",
+                  background: "transparent",
+                }}
+              >
+                Login
               </NavLink>
-            )}
-          </div>
+              <NavLink
+                to="/signup"
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  color: "#1b4332",
+                  background: "#fff",
+                }}
+              >
+                Sign up
+              </NavLink>
+            </div>
+          ) : (
+            <NavLink
+              to="/logout"
+              style={{
+                padding: "6px 14px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.3)",
+                textDecoration: "none",
+                fontWeight: 700,
+                fontSize: 13,
+                color: "#fff",
+                background: "transparent",
+                flexShrink: 0,
+              }}
+            >
+              Logout
+            </NavLink>
+          )}
+
+          {/* ── Hamburger (mobile only) ── */}
+          {isMobile && (
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Toggle menu"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 4,
+                width: 36,
+                height: 36,
+                background: menuOpen ? "rgba(255,255,255,0.12)" : "transparent",
+                border: "1px solid rgba(255,255,255,0.2)",
+                borderRadius: 8,
+                cursor: "pointer",
+                flexShrink: 0,
+                padding: 0,
+              }}
+            >
+              {menuOpen ? (
+                /* X icon */
+                <svg width={18} height={18} viewBox="0 0 24 24" stroke="#fff" strokeWidth={2.5} fill="none">
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                </svg>
+              ) : (
+                /* Hamburger icon */
+                <svg width={18} height={18} viewBox="0 0 24 24" stroke="#fff" strokeWidth={2.5} fill="none">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              )}
+            </button>
+          )}
         </div>
+
+        {/* ── Mobile dropdown ── */}
+        {isMobile && menuOpen && (
+          <nav
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              padding: "8px 20px 14px",
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+              background: "#1b4332",
+            }}
+          >
+            {navLinks}
+            {isAuthed && user?.email && (
+              <span
+                style={{
+                  fontSize: 12,
+                  color: "rgba(255,255,255,0.5)",
+                  padding: "6px 13px",
+                  marginTop: 4,
+                }}
+              >
+                {user.email}
+              </span>
+            )}
+          </nav>
+        )}
       </div>
 
       <div style={{ minHeight: "100vh", background: "#f8faf8" }}>

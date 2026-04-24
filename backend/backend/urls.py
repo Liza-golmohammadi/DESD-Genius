@@ -22,8 +22,6 @@ urlpatterns = [
     path("api/orders/", include("orders.urls")),
     path("api/recipes/", include("recipes.urls")),
     path("api/payments/", include("payments.urls")),
-
-    #  AI SERVICE
     path("api/ai/", include("ai_service.urls")),
 
     path("accounts-auth/", include("rest_framework.urls")),

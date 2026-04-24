@@ -39,8 +39,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     producer_profile = ProducerProfileSerializer(required=False)
     class Meta:
         model = User
-        fields = ['email', 'first_name', 'last_name', 'phone_number', 'address', 'postcode', 'delivery_address', 'customer_role', 'is_producer', 'role', 'producer_profile']
-        read_only_fields = ['is_producer', 'role']
+        fields = ['id', 'email', 'first_name', 'last_name', 'phone_number', 'address', 'postcode', 'delivery_address', 'customer_role', 'is_producer', 'role', 'producer_profile']
+        read_only_fields = ['id', 'is_producer', 'role']
 
     def validate_email(self, value):
         user = self.instance
