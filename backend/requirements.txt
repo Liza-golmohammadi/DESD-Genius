@@ -8,3 +8,10 @@ python-dotenv==1.2.1
 sqlparse==0.5.5
 psycopg2-binary
 Pillow
+
+# AI/ML dependencies — Advanced AI module (UFCFUR-15-3)
+numpy
+scikit-learn
+tensorflow
+tf-explain
+kaggle
