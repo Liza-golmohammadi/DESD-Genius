@@ -235,7 +235,6 @@ type AiRecsPayload = {
   products_boosted: number;
 };
 
-const GRADE_DOT: Record<string, string> = { A: "#10b981", B: "#f59e0b", C: "#ef4444" };
 const GRADE_BG:  Record<string, string> = { A: "#d1fae5", B: "#fef3c7", C: "#fee2e2" };
 const GRADE_FG:  Record<string, string> = { A: "#065f46", B: "#92400e", C: "#991b1b" };
 
@@ -259,7 +258,7 @@ function AiRecsPanel({
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px", display: "flex", flexDirection: "column", gap: 18 }}>
 
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>🤖</span>
             <span style={{ fontSize: 15, fontWeight: 800, color: "#1b4332" }}>AI Picks For You</span>
@@ -436,7 +435,9 @@ export default function Home() {
   const [organicOnly, setOrganicOnly] = useState(false);
   const [activeProducers, setActiveProducers] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"popular" | "price-asc" | "price-desc" | "name">("popular");
-  const [maxPrice, setMaxPrice] = useState<number>(20);
+  const [priceFilterEnabled, setPriceFilterEnabled] = useState(false);
+  const [minPrice, setMinPrice] = useState("0");
+  const [maxPrice, setMaxPrice] = useState("");
 
   const loadData = async () => {
     try {
@@ -499,14 +500,26 @@ export default function Home() {
       list = list.filter((p) => activeProducers.includes(p.producer_name));
     }
 
-    list = list.filter((p) => Number(p.price) <= maxPrice);
+    if (priceFilterEnabled) {
+      const min = Math.max(0, Number(minPrice) || 0);
+      const parsedMax = Number(maxPrice);
+      const max =
+        maxPrice.trim() === "" || Number.isNaN(parsedMax) ? Infinity : Math.max(0, parsedMax);
+
+      list = list.filter((p) => {
+        const price = Number(p.price);
+        if (Number.isNaN(price)) return false;
+
+        return price >= min && price <= max;
+      });
+    }
 
     if (sortBy === "price-asc") list.sort((a, b) => Number(a.price) - Number(b.price));
     else if (sortBy === "price-desc") list.sort((a, b) => Number(b.price) - Number(a.price));
     else if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
 
     return list;
-  }, [products, search, activeCategories, organicOnly, activeProducers, sortBy, maxPrice]);
+  }, [products, search, activeCategories, organicOnly, activeProducers, sortBy, priceFilterEnabled, minPrice, maxPrice]);
 
   const countPerCategory = useMemo(() => {
     return categories.reduce((acc, cat) => {
@@ -551,6 +564,13 @@ export default function Home() {
       setAddingProductId(null);
     }
   }
+
+  const minPriceNumber = Math.max(0, Number(minPrice) || 0);
+  const maxPriceNumber = Number(maxPrice);
+  const maxPriceIsUnlimited = maxPrice.trim() === "" || Number.isNaN(maxPriceNumber);
+  const priceRangeLabel = `£${minPriceNumber.toFixed(2)} to ${
+    maxPriceIsUnlimited ? "Unlimited" : `£${Math.max(0, maxPriceNumber).toFixed(2)}`
+  }`;
 
   const s = {
     page: {
@@ -782,22 +802,98 @@ export default function Home() {
 
           <div style={s.sideSection}>
             <div style={s.sideHeading}>Price</div>
-            <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
-              Up to <strong style={{ color: "#1b4332" }}>£{maxPrice.toFixed(2)}</strong>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={20}
-              step={0.5}
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(Number(e.target.value))}
-              style={{ width: "100%", accentColor: "#2d6a4f" }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#aaa", marginTop: 4 }}>
-              <span>£1</span>
-              <span>£20</span>
-            </div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                fontSize: 14,
+                marginBottom: priceFilterEnabled ? 12 : 4,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={priceFilterEnabled}
+                onChange={(e) => setPriceFilterEnabled(e.target.checked)}
+                style={{ accentColor: "#2d6a4f", width: 16, height: 16 }}
+              />
+              Filter by price
+            </label>
+
+            {!priceFilterEnabled ? (
+              <div style={{ fontSize: 12, color: "#888", lineHeight: 1.4 }}>
+                Price filter is off, so products at any price are shown.
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
+                  Range: <strong style={{ color: "#1b4332" }}>{priceRangeLabel}</strong>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <label style={{ fontSize: 12, color: "#666" }}>
+                    Min
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={minPrice}
+                      onChange={(e) => setMinPrice(e.target.value)}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        marginTop: 4,
+                        padding: "7px 8px",
+                        borderRadius: 8,
+                        border: "1px solid #ddd",
+                        fontSize: 13,
+                      }}
+                    />
+                  </label>
+
+                  <label style={{ fontSize: 12, color: "#666" }}>
+                    Max
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={maxPrice}
+                      onChange={(e) => setMaxPrice(e.target.value)}
+                      placeholder="No max"
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        marginTop: 4,
+                        padding: "7px 8px",
+                        borderRadius: 8,
+                        border: "1px solid #ddd",
+                        fontSize: 13,
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setMinPrice("0");
+                    setMaxPrice("");
+                  }}
+                  style={{
+                    marginTop: 8,
+                    padding: "6px 10px",
+                    border: "1px solid #ddd",
+                    borderRadius: 8,
+                    background: "#fff",
+                    color: "#555",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  Reset price range
+                </button>
+              </>
+            )}
           </div>
 
           <div style={s.sideSection}>
@@ -840,14 +936,16 @@ export default function Home() {
             ))}
           </div>
 
-          {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0) && (
+          {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0 || priceFilterEnabled) && (
             <div style={{ padding: "12px 20px 4px" }}>
               <button
                 onClick={() => {
                   setActiveCategories([]);
                   setOrganicOnly(false);
                   setActiveProducers([]);
-                  setMaxPrice(20);
+                  setPriceFilterEnabled(false);
+                  setMinPrice("0");
+                  setMaxPrice("");
                 }}
                 style={{
                   width: "100%",
@@ -925,7 +1023,7 @@ export default function Home() {
             </div>
           )}
 
-          {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0 || search) && (
+          {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0 || priceFilterEnabled || search) && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
               {categories
                 .filter((c) => activeCategories.includes(c.id))
@@ -961,6 +1059,27 @@ export default function Home() {
                   }}
                 >
                   Organic ×
+                </span>
+              )}
+
+              {priceFilterEnabled && (
+                <span
+                  onClick={() => {
+                    setPriceFilterEnabled(false);
+                    setMinPrice("0");
+                    setMaxPrice("");
+                  }}
+                  style={{
+                    background: "#e8f5e9",
+                    color: "#1b4332",
+                    padding: "5px 12px",
+                    borderRadius: 20,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Price: {priceRangeLabel} ×
                 </span>
               )}
 

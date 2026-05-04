@@ -15,6 +15,7 @@ from .serializers import (
     StatusUpdateSerializer,
 )
 from .models import Order, ProducerOrder
+from payments.services import PaymentService
 
 User = get_user_model()
 
@@ -105,13 +106,16 @@ class CheckoutView(APIView):
                 request.user, delivery_address, producer_delivery_dates
             )
 
-            # TODO: Call PaymentService.initiate_payment(order) here
+            # DONE: Call PaymentService.initiate_payment(order) here
+            payment_result = PaymentService.initiate_payment(order)
+
             order_serializer = OrderDetailSerializer(order)
             response_data = order_serializer.data
             response_data.update(
                 {
-                    "payment_status": "pending",
-                    "payment_message": "Proceed to payment to confirm order.",
+                    "payment_status": payment_result["status"],
+                    "payment_message": "Payment processed in mock/test mode.",
+                    "payment": payment_result,
                 }
             )
             return Response(response_data, status=status.HTTP_201_CREATED)

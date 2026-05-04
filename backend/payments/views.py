@@ -14,11 +14,37 @@ from .serializers import (
 )
 
 
+def is_admin(user):
+    return user.is_authenticated and user.role == "admin"
+
+
+def is_producer(user):
+    return user.is_authenticated and user.role == "producer"
+
+
+def is_customer(user):
+    return user.is_authenticated and user.role == "customer"
+
+
 class PaymentListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        payments = Payment.objects.select_related("order", "order__customer").all()
+        if is_admin(request.user):
+            payments = Payment.objects.select_related("order", "order__customer").all()
+
+        elif is_customer(request.user):
+            payments = Payment.objects.select_related(
+                "order",
+                "order__customer",
+            ).filter(order__customer=request.user)
+
+        else:
+            return Response(
+                {"error": "You do not have permission to view payments."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = PaymentSerializer(payments, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -37,6 +63,12 @@ class PaymentDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        if not is_admin(request.user) and payment.order.customer != request.user:
+            return Response(
+                {"error": "You do not have permission to view this payment."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = PaymentSerializer(payment)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -45,6 +77,12 @@ class PaymentStatusUpdateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, order_ref):
+        if not is_admin(request.user):
+            return Response(
+                {"error": "Only admins can update payment status."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         try:
             payment = Payment.objects.select_related("order").get(
                 order__order_number=order_ref
@@ -81,8 +119,17 @@ class SettlementListView(APIView):
             "producer_order",
         ).all()
 
-        if request.user.role == "producer":
+        if is_admin(request.user):
+            pass
+
+        elif is_producer(request.user):
             settlements = settlements.filter(producer=request.user)
+
+        else:
+            return Response(
+                {"error": "You do not have permission to view settlements."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = SettlementSerializer(settlements, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -104,7 +151,13 @@ class SettlementDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if request.user.role == "producer" and settlement.producer != request.user:
+        if is_admin(request.user):
+            pass
+
+        elif is_producer(request.user) and settlement.producer == request.user:
+            pass
+
+        else:
             return Response(
                 {"error": "You do not have permission to view this settlement."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -118,6 +171,12 @@ class SettlementStatusUpdateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, settlement_id):
+        if not is_admin(request.user):
+            return Response(
+                {"error": "Only admins can update settlement status."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         try:
             settlement = Settlement.objects.select_related("producer", "order").get(
                 id=settlement_id
@@ -139,7 +198,8 @@ class SettlementStatusUpdateView(APIView):
             settlement.paid_at = timezone.now()
             settlement.save(update_fields=["status", "paid_at"])
         else:
-            settlement.save(update_fields=["status"])
+            settlement.paid_at = None
+            settlement.save(update_fields=["status", "paid_at"])
 
         return Response(
             {
@@ -156,11 +216,25 @@ class SettlementReportView(APIView):
     def get(self, request):
         settlements = Settlement.objects.select_related("producer").all()
 
-        if request.user.role == "producer":
+        if is_admin(request.user):
+            pass
+
+        elif is_producer(request.user):
             settlements = settlements.filter(producer=request.user)
 
+        else:
+            return Response(
+                {"error": "You do not have permission to view settlement reports."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         report = (
-            settlements.values("producer__id", "producer__first_name", "producer__last_name", "producer__username")
+            settlements.values(
+                "producer__id",
+                "producer__first_name",
+                "producer__last_name",
+                "producer__username",
+            )
             .annotate(
                 total_subtotal=Sum("subtotal"),
                 total_commission=Sum("commission_amount"),
@@ -175,14 +249,16 @@ class SettlementReportView(APIView):
             full_name = f"{row['producer__first_name']} {row['producer__last_name']}".strip()
             producer_name = full_name if full_name else row["producer__username"]
 
-            formatted_report.append({
-                "producer_id": row["producer__id"],
-                "producer_name": producer_name,
-                "total_subtotal": row["total_subtotal"],
-                "total_commission": row["total_commission"],
-                "total_payout": row["total_payout"],
-                "settlement_count": row["settlement_count"],
-            })
+            formatted_report.append(
+                {
+                    "producer_id": row["producer__id"],
+                    "producer_name": producer_name,
+                    "total_subtotal": row["total_subtotal"],
+                    "total_commission": row["total_commission"],
+                    "total_payout": row["total_payout"],
+                    "settlement_count": row["settlement_count"],
+                }
+            )
 
         serializer = SettlementReportSerializer(formatted_report, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
