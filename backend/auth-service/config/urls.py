@@ -16,17 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import (
-    TokenBlacklistView,
-    TokenRefreshView,
-)
+from rest_framework_simplejwt.views import TokenBlacklistView
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 	path('api/auth_service/', include("auth_service.urls")),
 	path("api/auth_service-auth/", include("rest_framework.urls")),
-	# path("api/auth_service/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("api/auth_service/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/auth_service/token/blacklist/", TokenBlacklistView.as_view(), name="token_blacklist"),
 ]

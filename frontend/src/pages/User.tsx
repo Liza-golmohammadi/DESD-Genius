@@ -191,7 +191,6 @@ export default function User() {
             to="/login"
             onClick={() => {
               localStorage.removeItem("access");
-              localStorage.removeItem("refresh");
             }}
           >
             Log in again
@@ -535,7 +534,6 @@ export default function User() {
           type="button"
           onClick={() => {
             localStorage.removeItem("access");
-            localStorage.removeItem("refresh");
             window.location.href = "/login";
           }}
           style={{ padding: "10px 12px", borderRadius: 10, cursor: "pointer" }}

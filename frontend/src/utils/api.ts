@@ -8,6 +8,7 @@ const baseURL =
 
 const api = axios.create({
   baseURL,
+  withCredentials: true, // Send HTTP-only cookies with every request
 });
 
 // Attach access token to every request
@@ -43,10 +44,8 @@ api.interceptors.response.use(
     }
     originalRequest._retry = true;
 
-    const refresh = localStorage.getItem("refresh");
-    if (!refresh) {
-      localStorage.removeItem("access");
-      localStorage.removeItem("refresh");
+    // No access token at all — go to login
+    if (!localStorage.getItem("access")) {
       window.location.href = "/login";
       return Promise.reject(error);
     }
@@ -62,13 +61,13 @@ api.interceptors.response.use(
       });
     }
 
-    // Do refresh
+    // Do refresh — cookie is sent automatically (withCredentials: true)
     isRefreshing = true;
     try {
       const refreshRes = await axios.post(
         `${baseURL}/api/auth_service/token/refresh/`,
-        { refresh },
-        { headers: { "Content-Type": "application/json" } }
+        {},  // No body needed — refresh token is in the HTTP-only cookie
+        { withCredentials: true }
       );
 
       const newAccess = (refreshRes.data as any)?.access;
@@ -82,7 +81,6 @@ api.interceptors.response.use(
     } catch (e) {
       flushQueue(null);
       localStorage.removeItem("access");
-      localStorage.removeItem("refresh");
       window.location.href = "/login";
       return Promise.reject(e);
     } finally {

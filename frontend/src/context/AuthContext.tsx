@@ -72,24 +72,22 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
 
   const logoutUser = useCallback(async () => {
     try {
-      const refresh = localStorage.getItem("refresh");
-      if (refresh) {
-        await api.post("/api/auth_service/logout/", { refresh });
-      }
+      // Server reads refresh from HTTP-only cookie, blacklists it, clears cookie
+      await api.post("/api/auth_service/logout/", {});
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
       localStorage.removeItem("access");
-      localStorage.removeItem("refresh");
       setUser(null);
     }
   }, []);
 
   const loginUser = useCallback(
     async ({ email, password }: LoginPayload) => {
+      // Server sets refresh token as HTTP-only cookie, returns access in body
       const token = await api.post("/api/auth_service/token/", { email, password });
       localStorage.setItem("access", token.data.access);
-      localStorage.setItem("refresh", token.data.refresh);
+      // Note: refresh token is NOT in the response body — it's in a Set-Cookie header
 
       const res = await api.get<User>("/api/auth_service/me/");
       setUser(res.data);
@@ -103,11 +101,13 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   );
 
   useEffect(() => {
+    // Clean up stale refresh token from old localStorage approach
+    localStorage.removeItem("refresh");
+
     const auth = async () => {
       const access = localStorage.getItem("access");
-      const refresh = localStorage.getItem("refresh");
 
-      if (!access || !refresh) {
+      if (!access) {
         setLoading(false);
         return;
       }
@@ -141,15 +141,6 @@ const registerProducer = useCallback(
       email: payload.email,
       password: payload.password,
     });
-
-    // 3. Update producer profile (signal creates it, we just update it)
-    /* await api.patch("/accounts/auth/me/", {
-      producer_profile: {
-        store_name: payload.store_name,
-        store_description: payload.store_description,
-        store_contact: payload.store_contact,
-      },
-    }); */
   },
   [loginUser],
 );
