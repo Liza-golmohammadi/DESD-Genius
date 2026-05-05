@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose up:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker-compose run:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker ps:*)",
+      "Read(//tmp/**)",
+      "Read(//c/tmp/**)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc0Mzk2OTc3LCJpYXQiOjE3NzQzOTMzNzcsImp0aSI6IjdhYWUxYzZiMTk3YzQ3ZjI4MzM2YjIyN2FmZmE3MWFmIiwidXNlcl9pZCI6IjYifQ.TFRqKfsxFK83xeH1kU1E6eRbp4aRRyglTk7JFTaBEqo\")",
+      "Bash(python3:*)",
+      "Bash(docker restart:*)",
+      "Bash(git ls-tree:*)",
+      "Read(//c/Users/damzy/OneDrive/Documents/DESD-Genius/**)",
+      "Bash(docker-compose build:*)",
+      "Bash(git push:*)",
+      "Bash(docker compose:*)",
+      "Bash(ls -la /c/Users/damzy/OneDrive/Documents/DESD-Genius/frontend/src/pages/ProductDetail*)",
+      "Bash(xargs grep:*)",
+      "Bash(git pull:*)",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f''''Total products: {len\\(data\\)}''''\\); [print\\(f''''  id={p[\"\"id\"\"]} price={p.get\\(\"\"price\"\",\"\"?\"\"\\)} allergens={p.get\\(\"\"allergens\"\",\"\"?\"\"\\)} producer={p.get\\(\"\"producer\"\",\"\"?\"\"\\)}''''\\) for p in data[:5]]\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f''''Total products: {len\\(data\\)}''''\\)\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f''''{len\\(data\\)} products''''\\); [print\\(f''''  {p[\"\"name\"\"]}: £{p[\"\"price\"\"]}''''\\) for p in data[:5]]\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f''''{len\\(data\\)} products''''\\); [print\\(f''''  {p[\"\"name\"\"]}: allergens={p.get\\(\"\"allergens\"\",\"\"none\"\"\\)}''''\\) for p in data[:5]]\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f''''{len\\(data\\)} products''''\\); [print\\(f''''  {p[\"\"name\"\"]}: producer={p.get\\(\"\"producer\"\",\"\"?\"\"\\)}''''\\) for p in data[:5]]\")",
+      "Bash(git checkout *)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius branch --show-current)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius log --oneline -5)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius remote -v)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius ls-remote origin)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius checkout Revision-1)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius checkout --track origin/Revision-1)",
+      "Bash(bash /tmp/test_desd.sh)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius fetch origin Revision-1)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius checkout FETCH_HEAD)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius log --oneline -10)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius show --stat 0b48e27)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\damzy\\OneDrive\\Documents\\DESD-Genius\\backend\\ai_service",
+      "\\tmp",
+      "c:\\tmp"
+    ]
+  }
+}
