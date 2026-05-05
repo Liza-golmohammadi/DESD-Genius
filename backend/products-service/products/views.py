@@ -1,5 +1,3 @@
-from django.shortcuts import render
-
 from django.db.models import Q
 from django.db import transaction
 from django.conf import settings
@@ -16,6 +14,7 @@ from .serializers import (
     ProductCreateSerializer,
 )
 
+
 def _is_producer(user) -> bool:
     return getattr(user, "is_authenticated", False) and getattr(user, "is_producer", False)
 
@@ -27,9 +26,8 @@ def _is_internal_service_request(request) -> bool:
     supplied = request.headers.get("X-Internal-Service-Token", "")
     return constant_time_compare(supplied, expected)
 
-""" def _is_admin(user) -> bool:
-    return getattr(user, "is_authenticated", False) and getattr(user, "role", None) == "admin" """
 
+# ── Public Views (Home page) ─────────────────────────────────────────────────
 
 class CategoryListView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -39,22 +37,12 @@ class CategoryListView(APIView):
         return Response(CategorySerializer(qs, many=True).data)
 
 
-class ProductListCreateView(APIView):
+class PublicProductListView(APIView):
+    """All visible products — used by the Home/storefront page."""
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        qs = Product.objects.select_related("category")
-
-        # ?mine=true — producer dashboard: only this producer's products
-        mine_only = request.query_params.get("mine", "").lower() == "true"
-
-        if _is_producer(request.user) and mine_only:
-            qs = qs.filter(producer_id=str(request.user.id))
-        elif _is_producer(request.user):
-            public_ids = Product.objects.visible_to_customers().values_list("id", flat=True)
-            qs = qs.filter(Q(id__in=public_ids) | Q(producer_id=str(request.user.id)))
-        else:
-            qs = qs.visible_to_customers()
+        qs = Product.objects.visible_to_customers().select_related("category")
 
         category_id = request.query_params.get("category")
         if category_id:
@@ -70,9 +58,55 @@ class ProductListCreateView(APIView):
 
         return Response(ProductListSerializer(qs.order_by("name"), many=True, context={"request": request}).data)
 
+
+class PublicProductDetailView(APIView):
+    """Single product detail — visible to everyone if orderable."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, product_id: int):
+        try:
+            product = Product.objects.select_related("category").get(id=product_id)
+        except Product.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        # Producers can always see their own products even if not orderable
+        if not product.is_orderable():
+            if _is_producer(request.user) and str(product.producer_id) == str(request.user.id):
+                pass
+            else:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(ProductDetailSerializer(product, context={"request": request}).data)
+
+
+# ── Producer Views (Dashboard) ────────────────────────────────────────────────
+
+class ProducerProductListCreateView(APIView):
+    """
+    GET  — list only this producer's products (all statuses).
+    POST — create a new product owned by this producer.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not _is_producer(request.user):
+            return Response({"error": "Only producers can access this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+
+        qs = Product.objects.filter(
+            producer_id=str(request.user.id)
+        ).select_related("category").order_by("-created_at")
+
+        category_id = request.query_params.get("category")
+        if category_id:
+            qs = qs.filter(category_id=category_id)
+
+        search = request.query_params.get("search")
+        if search:
+            qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search))
+
+        return Response(ProductListSerializer(qs, many=True, context={"request": request}).data)
+
     def post(self, request):
-        if not request.user.is_authenticated:
-            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
         if not _is_producer(request.user):
             return Response({"error": "Only producers can create products."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -83,51 +117,42 @@ class ProductListCreateView(APIView):
         return Response(ProductDetailSerializer(product, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
-class ProductDetailView(APIView):
-    permission_classes = [permissions.AllowAny]
+class ProducerProductDetailView(APIView):
+    """
+    GET   — view one of this producer's products.
+    PATCH — update any field on this producer's product.
+    """
+    permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, product_id: int):
+    def _get_product(self, request, product_id):
+        if not _is_producer(request.user):
+            return None, Response({"error": "Only producers can access this."}, status=status.HTTP_403_FORBIDDEN)
         try:
             product = Product.objects.select_related("category").get(id=product_id)
         except Product.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return None, Response(status=status.HTTP_404_NOT_FOUND)
+        if str(product.producer_id) != str(request.user.id):
+            return None, Response({"error": "You can only manage your own products."}, status=status.HTTP_403_FORBIDDEN)
+        return product, None
 
-        if not product.is_orderable():
-            """ if _is_admin(request.user):
-                pass """
-            if _is_producer(request.user) and str(product.producer_id) == str(request.user.id):
-                pass
-            else:
-                return Response(status=status.HTTP_404_NOT_FOUND)
-
+    def get(self, request, product_id: int):
+        product, err = self._get_product(request, product_id)
+        if err:
+            return err
         return Response(ProductDetailSerializer(product, context={"request": request}).data)
 
-
-class ProductInventoryUpdateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
     def patch(self, request, product_id: int):
-        if not _is_producer(request.user):
-            return Response({"error": "Only producers can update inventory."}, status=status.HTTP_403_FORBIDDEN)
-
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-        if str(product.producer_id) != str(request.user.id):
-            return Response({"error": "You can only update your own products."}, status=status.HTTP_403_FORBIDDEN)
-
-        allowed_fields = {"stock_quantity", "low_stock_threshold", "is_available", "available_from", "available_to"}
-        for field in list(request.data.keys()):
-            if field not in allowed_fields:
-                return Response({"error": f"Field '{field}' is not allowed here."}, status=status.HTTP_400_BAD_REQUEST)
+        product, err = self._get_product(request, product_id)
+        if err:
+            return err
 
         serializer = ProductCreateSerializer(instance=product, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(ProductDetailSerializer(product, context={"request": request}).data)
 
+
+# ── Internal Service Endpoints (Stock reservation) ───────────────────────────
 
 class ProductStockReserveView(APIView):
     """
@@ -137,9 +162,6 @@ class ProductStockReserveView(APIView):
 
     def post(self, request, product_id: int):
         if not _is_internal_service_request(request):
-            expected = getattr(settings, "INTERNAL_SERVICE_TOKEN", "")
-            supplied = request.headers.get("X-Internal-Service-Token", "")
-            print(f"[RESERVE] Forbidden: expected_token_set={bool(expected)} supplied_token_set={bool(supplied)} match={expected == supplied}")
             return Response({"error": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
 
         quantity = request.data.get("quantity")

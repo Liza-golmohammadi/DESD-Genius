@@ -52,13 +52,7 @@ class Product(models.Model):
 	# removed foreign key
     producer_id = models.CharField(max_length=36, db_index=True)
     producer_name = models.CharField(max_length=255, blank=True, default="")
-    """ producer = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        limit_choices_to={"role": "producer"},
-        related_name="products",
-        db_index=True,
-    ) """
+    
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="products", db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

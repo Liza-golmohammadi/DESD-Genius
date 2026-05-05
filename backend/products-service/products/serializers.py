@@ -10,7 +10,6 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProductListSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
-    # producer_name = serializers.SerializerMethodField()
     image = serializers.ImageField(read_only=True)
     image_source = serializers.SerializerMethodField()
     is_low_stock = serializers.SerializerMethodField()
@@ -25,10 +24,6 @@ class ProductListSerializer(serializers.ModelSerializer):
             "available_from", "available_to", "category",
             "farm_origin", "food_miles", "producer_id", "producer_name",
         ]
-        # read_only_fields= ['producer_id']
-
-    """ def get_producer_name(self, obj):
-        return obj.producer.get_full_name() or obj.producer.username """
 
     def get_image_source(self, obj):
         request = self.context.get("request")
@@ -44,7 +39,6 @@ class ProductListSerializer(serializers.ModelSerializer):
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
-    # producer_name = serializers.SerializerMethodField()
     is_in_season = serializers.SerializerMethodField()
     is_low_stock = serializers.SerializerMethodField()
     image = serializers.ImageField(read_only=True)

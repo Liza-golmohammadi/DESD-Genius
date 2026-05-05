@@ -11,10 +11,6 @@ from django.contrib.auth import get_user_model, authenticate
 from rest_framework import viewsets
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-
-
-User = get_user_model()
-
 class IsProducer(permissions.BasePermission):
 	def has_permission(self, request, view):
 		return request.user.is_authenticated and request.user.role == 'producer'
@@ -59,19 +55,6 @@ class LogoutView(APIView):
 		except TokenError:
 			return Response({"error": "Invalid or expired token"}, status=400)
 		return Response({"message": "Logged out successfully"})
-	
-""" class ProducerListView(generics.ListAPIView):
-	queryset = ProducerProfile.objects.select_related('user').all()
-	serializer_class = ProducerListSerializer
-	permission_classes = [AllowAny]
-
-class ProducerDetailView(generics.RetrieveAPIView):
-    serializer_class = ProducerDetailSerializer
-    permission_classes = [AllowAny]
-
-    def get_queryset(self):
-        return ProducerProfile.objects.all().select_related('user') """
-
 
 class ProducerViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ProducerProfile.objects.select_related('user')

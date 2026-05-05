@@ -154,33 +154,6 @@ class ProducerListSerializer(serializers.ModelSerializer):
             'farm_story',
         ]
 
-""" class ProducerDetailSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(source='user.id')
-    email = serializers.EmailField(source='user.email', read_only=True)
-    first_name = serializers.CharField(source='user.first_name', read_only=True)
-    last_name = serializers.CharField(source='user.last_name', read_only=True)
-
-    class Meta:
-        model = ProducerProfile
-        fields = [
-            'id',
-            'email',
-            'first_name',
-            'last_name',
-            'store_name',
-            'store_description',
-            'store_contact',
-            'store_address',
-            'store_created_at',
-            
-        ] """
-
-""" def get_products(self, obj):
-        from products.serializers import ProductListSerializer
-        products = obj.user.products.filter(is_available=True)
-        return ProductListSerializer(products, many=True).data """
-    
-
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

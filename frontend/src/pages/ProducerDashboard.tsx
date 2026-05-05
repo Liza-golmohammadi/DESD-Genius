@@ -146,7 +146,7 @@ function ProductModal({ categories, initial, onClose, onSaved }: { categories: C
       };
       if (!body.image_url) delete body.image_url;
       if (isEdit) {
-        await api.patch(`/api/products/${initial!.id}/inventory/`, {
+        await api.patch(`/api/products/mine/${initial!.id}/`, {
           stock_quantity: body.stock_quantity,
           low_stock_threshold: body.low_stock_threshold,
           is_available: body.is_available,
@@ -154,7 +154,7 @@ function ProductModal({ categories, initial, onClose, onSaved }: { categories: C
           available_to: body.available_to,
         });
       } else {
-        await api.post("/api/products/", body);
+        await api.post("/api/products/mine/", body);
       }
       onSaved();
     } catch (e) {
@@ -310,7 +310,7 @@ export default function ProducerDashboard() {
   async function loadProducts() {
     setProductsLoading(true);
     try {
-      const res = await api.get<Product[]>("/api/products/?mine=true");
+      const res = await api.get<Product[]>("/api/products/mine/");
       setProducts(res.data);
     } catch {
       // silently fail — shown as empty table
