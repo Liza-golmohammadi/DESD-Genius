@@ -38,6 +38,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     unit = models.CharField(max_length=50, default="unit")
     image_url = models.URLField(blank=True)
+    image = models.ImageField(upload_to="products/", blank=True, null=True)
 
     stock_quantity = models.IntegerField(validators=[MinValueValidator(0)])
     low_stock_threshold = models.IntegerField(default=5, validators=[MinValueValidator(0)])
@@ -47,8 +48,12 @@ class Product(models.Model):
     available_to = models.DateField(null=True, blank=True)
 
     allergens = models.TextField(blank=True)
+    storage_tips = models.TextField(blank=True)
+    recipe_idea = models.TextField(blank=True)
     organic_certified = models.BooleanField(default=False)
-    harvest_date = models.DateField()
+    harvest_date = models.DateField(default=timezone.localdate)
+    farm_origin = models.CharField(max_length=255, blank=True, default="", help_text="e.g. 'Bristol, UK'")
+    food_miles = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True, help_text="Estimated food miles for this product")
 
     producer = models.ForeignKey(
         User,
@@ -93,6 +98,12 @@ class Product(models.Model):
         return f"{self.name} ({self.producer.username})"
 
     @property
+    def image_source(self):
+        if self.image:
+            return self.image.url
+        return self.image_url
+
+    @property
     def is_in_season(self) -> bool:
         today = timezone.localdate()
         if self.available_from and today < self.available_from:
@@ -107,3 +118,12 @@ class Product(models.Model):
 
     def is_orderable(self) -> bool:
         return self.is_available and self.stock_quantity > 0 and self.is_in_season
+    
+    def save(self, *args, **kwargs):
+        if self.category_id is None:
+            default_category, created = Category.objects.get_or_create(
+                name="Uncategorised"
+            )
+            self.category = default_category
+
+        super().save(*args, **kwargs)

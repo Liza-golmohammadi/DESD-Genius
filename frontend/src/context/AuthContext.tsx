@@ -5,15 +5,38 @@ import {
   useEffect,
   useCallback,
 } from "react";
+import type React from "react";
 import { useNavigate } from "react-router";
 import api from "../api";
 
-interface RegisterPayload {
+interface RegisterCustomerPayload {
   email: string;
   first_name: string;
   last_name: string;
   password: string;
-  role: "customer" | "producer";
+  customer_role: string;
+  accepted_terms: boolean;
+  phone?: string;
+  phone_number?: string;
+  address?: string;
+  postcode?: string;
+  delivery_address?: string;
+}
+
+interface RegisterProducerPayload {
+  email: string;
+  first_name: string;
+  last_name: string;
+  password: string;
+  store_name: string;
+  store_description?: string;
+  store_contact?: string;
+  store_address?: string;
+  phone?: string;
+  phone_number?: string;
+  address?: string;
+  postcode?: string;
+  accepted_terms: boolean;
 }
 
 interface User {
@@ -21,13 +44,22 @@ interface User {
   email: string;
   first_name?: string;
   last_name?: string;
-  role?: string;
-  is_active?: boolean;
-}
-
-interface AuthTokens {
-  access: string;
-  refresh: string;
+  role?: "customer" | "producer" | "admin" | string;
+  phone?: string;
+  phone_number?: string;
+  address?: string;
+  postcode?: string;
+  delivery_address?: string;
+  customer_role?: string;
+  is_producer?: boolean;
+  accepted_terms_at?: string;
+  producer_profile?: {
+    store_name: string;
+    store_description: string;
+    store_contact: string;
+    store_address?: string;
+    store_created_at: string;
+  } | null;
 }
 
 interface LoginPayload {
@@ -37,11 +69,11 @@ interface LoginPayload {
 
 interface AuthContextType {
   user: User | null;
-  authTokens: AuthTokens | null;
   loading: boolean;
-  setUser: React.Dispatch<React.SetStateAction<User | null>>; // set user
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
   loginUser: (payload: LoginPayload) => Promise<void>;
-  registerUser: (payload: RegisterPayload) => Promise<void>;
+  registerCustomer: (payload: RegisterCustomerPayload) => Promise<void>;
+  registerProducer: (payload: RegisterProducerPayload) => Promise<void>;
   logoutUser: () => Promise<void>;
 }
 
@@ -52,9 +84,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [authTokens, setAuthTokens] = useState<AuthTokens | null>(null);
   const [loading, setLoading] = useState(true);
-
   const navigate = useNavigate();
 
   const logoutUser = useCallback(async () => {
@@ -68,23 +98,24 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
     } finally {
       localStorage.removeItem("access");
       localStorage.removeItem("refresh");
-      setAuthTokens(null);
       setUser(null);
     }
   }, []);
 
   const loginUser = useCallback(
     async ({ email, password }: LoginPayload) => {
-      const token = await api.post<AuthTokens>("/accounts/auth/login/", { email, password });
+      const token = await api.post("/accounts/token/", { email, password });
+
       localStorage.setItem("access", token.data.access);
       localStorage.setItem("refresh", token.data.refresh);
-      setAuthTokens(token.data);
 
-      const res = await api.get<User>("/accounts/auth/user/");
+      const res = await api.get<User>("/accounts/auth/me/");
       setUser(res.data);
 
-      if (res.data.role === "producer") {
+      if (res.data.role === "producer" || res.data.producer_profile) {
         navigate("/producer/dashboard");
+      } else if (res.data.role === "admin") {
+        navigate("/admin");
       } else {
         navigate("/");
       }
@@ -101,9 +132,9 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
         setLoading(false);
         return;
       }
-      setAuthTokens({ access, refresh });
+
       try {
-        const res = await api.get<User>("/accounts/auth/user/");
+        const res = await api.get<User>("/accounts/auth/me/");
         setUser(res.data);
       } catch {
         logoutUser();
@@ -111,12 +142,24 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
         setLoading(false);
       }
     };
-    auth();
-  }, []);
 
-  const registerUser = useCallback(
-    async (payload: RegisterPayload) => {
-      await api.post("/accounts/auth/register/", payload);
+    auth();
+  }, [logoutUser]);
+
+  const registerCustomer = useCallback(
+    async (payload: RegisterCustomerPayload) => {
+      await api.post("/accounts/auth/register/customer/", payload);
+      await loginUser({
+        email: payload.email,
+        password: payload.password,
+      });
+    },
+    [loginUser],
+  );
+
+  const registerProducer = useCallback(
+    async (payload: RegisterProducerPayload) => {
+      await api.post("/accounts/auth/register/producer/", payload);
       await loginUser({
         email: payload.email,
         password: payload.password,
@@ -126,9 +169,18 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   );
 
   const contextData = useMemo(
-    () => ({ user, authTokens, loading, setUser, loginUser, registerUser, logoutUser }),
-    [user, authTokens, loading, loginUser, registerUser, logoutUser],
+    () => ({
+      user,
+      loading,
+      setUser,
+      loginUser,
+      registerCustomer,
+      registerProducer,
+      logoutUser,
+    }),
+    [user, loading, loginUser, registerCustomer, registerProducer, logoutUser],
   );
+
   return (
     <AuthContext.Provider value={contextData}>{children}</AuthContext.Provider>
   );
