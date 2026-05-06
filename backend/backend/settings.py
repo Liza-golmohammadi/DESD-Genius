@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'recipes',
     'payments',
     'ai_service',
+    'notifications.apps.NotificationsConfig',
 ]
 
 MIDDLEWARE = [

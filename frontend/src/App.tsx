@@ -29,6 +29,7 @@ import ProductDetail from "./pages/ProductDetail";
 import RescueMarket from "./pages/RescueMarket";
 import ResolutionCenter from "./pages/ResolutionCenter";
 import CommunityHub from "./pages/CommunityHub";
+import NotificationBell from "./components/NotificationBell";
 
 function Logout() {
   const { logoutUser } = useAuth();
@@ -219,6 +220,9 @@ function Layout() {
               </svg>
             </NavLink>
           )}
+
+          {/* ── Notifications bell ── */}
+          {isAuthed && <NotificationBell />}
 
           {/* ── User email (desktop only) ── */}
           {!isMobile && isAuthed && user?.email && (

@@ -156,6 +156,10 @@ class OrderService:
 
         CartService.clear_cart(user)
 
+        # Notify each producer that they have a new order
+        from notifications.signals import create_notifications_for_new_order
+        create_notifications_for_new_order(order)
+
         return order
 
     @staticmethod
