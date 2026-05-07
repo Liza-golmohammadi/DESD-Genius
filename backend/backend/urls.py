@@ -9,6 +9,7 @@ from rest_framework_simplejwt.views import (
 )
 
 from orders.views import AdminReportsView, AdminUsersView, AdminOrdersView
+from payments.views import AdminCommissionReportView, AdminCommissionReportDownloadView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -21,6 +22,9 @@ urlpatterns = [
     path("api/cart/", include("cart.urls")),
     path("api/orders/", include("orders.urls")),
     path("api/recipes/", include("recipes.urls")),
+
+    path("api/payments/reports/commission/", AdminCommissionReportView.as_view(), name="admin-commission-report-direct"),
+    path("api/payments/reports/commission/export/", AdminCommissionReportDownloadView.as_view(), name="admin-commission-report-export-direct"),
     path("api/payments/", include("payments.urls")),
     path("api/ai/", include("ai_service.urls")),
     path("api/", include("reviews.urls")),

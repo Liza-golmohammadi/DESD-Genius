@@ -5,6 +5,43 @@ from .models import (
     RECURRING_FREQUENCY_CHOICES, RECURRING_STATUS_CHOICES,
 )
 
+def get_customer_facing_order_status(order):
+    """
+    Customer-facing overall order status based on producer sub-orders.
+    This prevents a multi-vendor order being shown as fully delivered
+    when only one producer has delivered their part.
+    """
+    producer_statuses = list(order.producer_orders.values_list("status", flat=True))
+
+    if not producer_statuses:
+        return order.status
+
+    if all(status == "cancelled" for status in producer_statuses):
+        return "cancelled"
+
+    if all(status == "delivered" for status in producer_statuses):
+        return "delivered"
+
+    if any(status == "delivered" for status in producer_statuses):
+        return "partially_delivered"
+
+    if any(status == "ready" for status in producer_statuses):
+        return "ready"
+
+    if any(status == "confirmed" for status in producer_statuses):
+        return "confirmed"
+
+    return order.status
+
+
+def get_customer_facing_order_status_display(order):
+    status = get_customer_facing_order_status(order)
+
+    if status == "partially_delivered":
+        return "Partially Delivered"
+
+    return status.replace("_", " ").title()
+
 
 class ProducerOrderItemSerializer(serializers.ModelSerializer):
     product_id = serializers.ReadOnlyField(source="product.id")
@@ -73,6 +110,9 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     producer_orders = ProducerOrderSerializer(many=True, read_only=True)
     producer_count = serializers.SerializerMethodField()
+    item_count = serializers.SerializerMethodField()
+    computed_status = serializers.SerializerMethodField()
+    computed_status_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -83,21 +123,36 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             "delivery_address",
             "status",
             "status_display",
+            "computed_status",
+            "computed_status_display",
             "order_type",
             "organisation_name",
             "created_at",
             "producer_orders",
             "producer_count",
+            "item_count",
         ]
         read_only_fields = fields
 
     def get_producer_count(self, obj):
         return obj.get_producer_count()
 
+    def get_item_count(self, obj):
+        return sum(po.items.count() for po in obj.producer_orders.all())
+
+    def get_computed_status(self, obj):
+        return get_customer_facing_order_status(obj)
+
+    def get_computed_status_display(self, obj):
+        return get_customer_facing_order_status_display(obj)
+
 
 class OrderListSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     producer_count = serializers.SerializerMethodField()
+    item_count = serializers.SerializerMethodField()
+    computed_status = serializers.SerializerMethodField()
+    computed_status_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -106,15 +161,27 @@ class OrderListSerializer(serializers.ModelSerializer):
             "total_amount",
             "status",
             "status_display",
+            "computed_status",
+            "computed_status_display",
             "order_type",
             "organisation_name",
             "created_at",
             "producer_count",
+            "item_count",
         ]
         read_only_fields = fields
 
     def get_producer_count(self, obj):
         return obj.get_producer_count()
+
+    def get_item_count(self, obj):
+        return sum(po.items.count() for po in obj.producer_orders.all())
+
+    def get_computed_status(self, obj):
+        return get_customer_facing_order_status(obj)
+
+    def get_computed_status_display(self, obj):
+        return get_customer_facing_order_status_display(obj)
 
 
 class CheckoutInputSerializer(serializers.Serializer):

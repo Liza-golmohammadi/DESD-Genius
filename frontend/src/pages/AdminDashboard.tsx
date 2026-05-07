@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api";
 import AdminUsers from "./AdminUsers";
 import AdminOrders from "./AdminOrders";
+import PaymentsPage from "./PaymentsPage";
 
 // ── AI Insights types ─────────────────────────────────────────────────────────
 type AiAdminInsights = {
@@ -55,7 +56,7 @@ type ReportsData = {
   }[];
 };
 
-const TABS = ["Overview", "Users", "Orders", "AI Insights"] as const;
+const TABS = ["Overview", "Users", "Orders", "Financial Reports", "AI Insights"] as const;
 type Tab = (typeof TABS)[number];
 
 const AdminDashboard = () => {
@@ -496,7 +497,7 @@ const AdminDashboard = () => {
               lineHeight: 1.6,
             }}
           >
-            Monitor platform activity, manage users, and review orders.
+            Monitor platform activity, manage users, review orders, and audit financial reports.
           </p>
         </div>
 
@@ -537,6 +538,7 @@ const AdminDashboard = () => {
         {tab === "Overview" && renderOverview()}
         {tab === "Users" && <AdminUsers />}
         {tab === "Orders" && <AdminOrders />}
+        {tab === "Financial Reports" && <PaymentsPage />}
         {tab === "AI Insights" && renderAiInsights()}
       </div>
     </div>

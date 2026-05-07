@@ -22,6 +22,7 @@ type ProducerOrder = {
   producer_id?: number;
   producer_name?: string;
   status?: string;
+  status_display?: string;
   delivery_date?: string | null;
   subtotal?: string | number;
   total_amount?: string | number;
@@ -32,6 +33,9 @@ type OrderDetailData = {
   id?: number;
   order_number: string;
   status: string;
+  status_display?: string;
+  computed_status?: string;
+  computed_status_display?: string;
   total_amount: string | number;
   created_at: string;
   delivery_address?: string;
@@ -141,6 +145,13 @@ const OrderDetail = () => {
       };
     }
 
+    if (normalized === "partially_delivered") {
+      return {
+        backgroundColor: "#ccfbf1",
+        color: "#0f766e",
+      };
+    }
+
     if (normalized === "delivered") {
       return {
         backgroundColor: "#dcfce7",
@@ -163,7 +174,11 @@ const OrderDetail = () => {
 
   const formatStatus = (status?: string) => {
     if (!status) return "Unknown";
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+    return status
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
   };
 
   const formatDate = (dateString?: string | null) => {
@@ -272,6 +287,11 @@ const OrderDetail = () => {
     );
   }
 
+  const orderDisplayStatus = order.computed_status || order.status;
+  const orderDisplayStatusText =
+    order.computed_status_display || order.status_display || formatStatus(orderDisplayStatus);
+  const isFullyDelivered = orderDisplayStatus === "delivered";
+
   return (
     <div style={pageStyle}>
       <button style={backButtonStyle} onClick={() => navigate("/orders")} type="button">
@@ -292,10 +312,10 @@ const OrderDetail = () => {
             <span
               style={{
                 ...badgeStyle,
-                ...getStatusStyle(order.status),
+                ...getStatusStyle(orderDisplayStatus),
               }}
             >
-              {formatStatus(order.status)}
+              {orderDisplayStatusText}
             </span>
           </div>
 
@@ -315,7 +335,7 @@ const OrderDetail = () => {
             {reordering ? "Reordering..." : "Reorder"}
           </button>
 
-          {isRestaurant && order.status === "delivered" && (
+          {isRestaurant && isFullyDelivered && (
             <button
               onClick={() => setShowRecurring(true)}
               style={recurringBtnStyle}
@@ -348,7 +368,7 @@ const OrderDetail = () => {
 
           <div style={summaryRowStyle}>
             <span style={summaryLabelStyle}>Status</span>
-            <span style={summaryValueStyle}>{formatStatus(order.status)}</span>
+            <span style={summaryValueStyle}>{orderDisplayStatusText}</span>
           </div>
 
           <div style={summaryRowStyle}>
@@ -389,7 +409,7 @@ const OrderDetail = () => {
                             ...getStatusStyle(producerOrder.status),
                           }}
                         >
-                          {formatStatus(producerOrder.status)}
+                          {producerOrder.status_display || formatStatus(producerOrder.status)}
                         </span>
                       </div>
                     )}

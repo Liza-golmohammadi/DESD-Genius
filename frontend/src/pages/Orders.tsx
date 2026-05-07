@@ -4,6 +4,7 @@ import api from "../api";
 
 type ProducerOrder = {
   id?: number;
+  status?: string;
   items?: unknown[];
 };
 
@@ -11,8 +12,12 @@ type OrderItem = {
   id?: number;
   order_number: string;
   status: string;
+  status_display?: string;
+  computed_status?: string;
+  computed_status_display?: string;
   total_amount: string | number;
   created_at: string;
+  item_count?: number;
   producer_orders?: ProducerOrder[];
 };
 
@@ -64,6 +69,13 @@ const Orders = () => {
       };
     }
 
+    if (normalized === "partially_delivered") {
+      return {
+        backgroundColor: "#ccfbf1",
+        color: "#0f766e",
+      };
+    }
+
     if (normalized === "delivered") {
       return {
         backgroundColor: "#dcfce7",
@@ -86,7 +98,11 @@ const Orders = () => {
 
   const formatStatus = (status: string) => {
     if (!status) return "Unknown";
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+    return status
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
   };
 
   const formatDate = (dateString: string) => {
@@ -104,6 +120,10 @@ const Orders = () => {
   };
 
   const getItemCount = (order: OrderItem) => {
+    if (typeof order.item_count === "number") {
+      return order.item_count;
+    }
+
     if (!order.producer_orders || !Array.isArray(order.producer_orders)) {
       return 0;
     }
@@ -163,6 +183,9 @@ const Orders = () => {
             <tbody>
               {orders.map((order) => {
                 const itemCount = getItemCount(order);
+                const displayStatus = order.computed_status || order.status;
+                const displayStatusText =
+                  order.computed_status_display || order.status_display || formatStatus(displayStatus);
 
                 return (
                   <tr
@@ -178,10 +201,10 @@ const Orders = () => {
                       <span
                         style={{
                           ...badgeStyle,
-                          ...getStatusStyle(order.status),
+                          ...getStatusStyle(displayStatus),
                         }}
                       >
-                        {formatStatus(order.status)}
+                        {displayStatusText}
                       </span>
                     </td>
                   </tr>
