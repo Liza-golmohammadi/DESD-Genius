@@ -1,0 +1,11 @@
+feat(ai): add hybrid AI service — quality classifier + quality-aware recommendations with XAI — Advanced AI module UFCFUR-15-3
+
+- QualityClassifierService (mock mode + live model ready)
+- Quality-aware RecommendationEngine (hybrid component)  
+- HybridEngine orchestrator
+- XAIService with Grad-CAM support + explanations
+- Synthetic data generator (management command)
+- 9 API endpoints (/api/ai/*)
+- 12 tests passing
+- MLModel upload for AI engineers
+- ProductInteraction logging for override tracking
