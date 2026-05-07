@@ -1,4 +1,4 @@
-# 🌱 DESD Genius - Bristol Regional Food Network
+# DESD Genius - Bristol Regional Food Network
 
 > A full-stack marketplace platform connecting local food producers with conscious consumers. Features AI-powered quality assessment, personalized recommendations, review system, and dynamic discount management.
 
@@ -9,16 +9,16 @@
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-### 🛒 **Marketplace & Commerce**
+### Marketplace & Commerce
 - **Multi-producer checkout** — Single cart split across multiple producers automatically
 - **Persistent cart** — Save items between sessions
 - **Role-based access** — Customer, Producer, and Admin workflows
 - **Stock management** — Real-time inventory with low-stock alerts
 - **Seasonal availability** — Products with harvest dates and availability windows
 
-### 🤖 **AI-Powered Quality & Recommendations**
+### AI-Powered Quality & Recommendations
 - **Automatic quality assessment** — CNN-based image analysis or mock mode
 - **Hybrid recommendation engine** — Combines collaborative filtering + quality data
 - **Explainable AI (XAI)** — Technical and non-technical explanations for recommendations
@@ -26,14 +26,14 @@
 - **Surplus deals** — Automatically discounted items from quality assessments
 - **Quick reorder** — AI-suggested products matched to purchase history
 
-### ⭐ **Customer Reviews & Ratings**
+### Customer Reviews & Ratings
 - **5-star verified reviews** — Only customers with delivered orders can review
 - **Review aggregation** — Average ratings and distribution charts per product
 - **Duplicate prevention** — One review per product per customer
 - **Helpful tracking** — Community feedback on reviews
 - **Review admin** — Django admin panel for moderation
 
-### 💰 **Discount & Coupon System**
+### Discount & Coupon System
 - **Flexible coupons** — Percentage or fixed amount discounts
 - **Usage limits** — Global and per-user limits
 - **Minimum order values** — Enforce spending thresholds
@@ -41,14 +41,14 @@
 - **Product discounts** — Automatic discounts from quality grades
 - **Admin dashboard** — Coupon creation and performance tracking
 
-### 🌍 **Sustainability & Traceability**
+### Sustainability & Traceability
 - **Food miles tracking** — Distance from farm to customer (optional)
 - **Organic certification** — Searchable organic product filter
 - **Farm origin** — Producer location and story
 - **Storage tips** — Product care instructions
 - **Recipe ideas** — Suggested recipes per product
 
-### 🔒 **Privacy & Compliance**
+### Privacy & Compliance
 - **GDPR-ready** — Data deletion endpoints
 - **JWT authentication** — Stateless, token-based auth
 - **Role-based access control** — Enforced at API and view level
@@ -57,7 +57,7 @@
 
 ---
 
-## 📊 Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────┐
@@ -87,7 +87,7 @@
 ### Backend Modules
 
 | Module | Purpose | Key Models |
-|--------|---------|-----------|
+|--------|---------|-----------| 
 | `accounts` | User management, authentication | User, Producer profile |
 | `products` | Product catalog, inventory | Product, Category, ProductDiscount |
 | `cart` | Shopping cart management | Cart, CartItem |
@@ -98,11 +98,11 @@
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 | Tool | Version | Purpose |
-|------|---------|---------|
+|------|---------|---------| 
 | Python | 3.12 | Runtime |
 | Django | 6.0.2 | Web framework |
 | DRF | 3.16 | REST API |
@@ -113,7 +113,7 @@
 
 ### Frontend
 | Tool | Version | Purpose |
-|------|---------|---------|
+|------|---------|---------| 
 | React | 19 | UI framework |
 | TypeScript | 5.9 | Type safety |
 | Vite | 7 | Build tool |
@@ -123,7 +123,7 @@
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 DESD-Genius/
@@ -173,7 +173,7 @@ DESD-Genius/
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - **Docker** 20.10+ and **Docker Compose** 2.0+
@@ -204,7 +204,7 @@ docker-compose exec backend python manage.py createsuperuser
 
 ---
 
-## 📖 API Reference
+## API Reference
 
 ### Authentication
 ```bash
@@ -366,7 +366,7 @@ GET /api/discounts/product-discounts/active/
 
 ---
 
-## 🔐 Authentication Details
+## Authentication Details
 
 **Access Token Lifetime:** 60 minutes  
 **Refresh Token Lifetime:** 7 days
@@ -382,7 +382,7 @@ Login uses **email as username**. All user emails are lowercase and unique.
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Run the test suite:
 
@@ -396,20 +396,20 @@ docker-compose exec backend coverage report
 ```
 
 **Test coverage includes:**
-- ✅ User authentication (JWT, token refresh)
-- ✅ Role-based access control
-- ✅ Product visibility rules (stock, season, organic)
-- ✅ Cart operations (add, update, remove)
-- ✅ Order creation and splitting by producer
-- ✅ Order status transitions
-- ✅ Stock decrements on checkout
-- ✅ Review creation (delivered orders only)
-- ✅ Coupon validation and discount calculations
-- ✅ AI recommendations and quality assessments
+- User authentication (JWT, token refresh)
+- Role-based access control
+- Product visibility rules (stock, season, organic)
+- Cart operations (add, update, remove)
+- Order creation and splitting by producer
+- Order status transitions
+- Stock decrements on checkout
+- Review creation (delivered orders only)
+- Coupon validation and discount calculations
+- AI recommendations and quality assessments
 
 ---
 
-## 📊 Database Schema
+## Database Schema
 
 ### Key Models
 
@@ -441,7 +441,7 @@ docker-compose exec backend coverage report
 - created_at, updated_at
 ```
 
-**ProducerOrder (orders.ProducerOrder)** → One per producer in order
+**ProducerOrder (orders.ProducerOrder)** — One per producer in order
 ```
 - order (FK), producer (FK)
 - subtotal, producer_payout
@@ -477,23 +477,23 @@ docker-compose exec backend coverage report
 
 ---
 
-## 🚨 Important Notes
+## Important Notes
 
 ### Development vs Production
 
 **Development (Docker Compose):**
-- ✅ SQLite in-memory database (reset on restart)
-- ✅ `DEBUG = True`
-- ✅ `CORS_ALLOW_ALL_ORIGINS = True`
-- ✅ AI runs in mock mode (no TensorFlow required)
+- SQLite in-memory database (reset on restart)
+- `DEBUG = True`
+- `CORS_ALLOW_ALL_ORIGINS = True`
+- AI runs in mock mode (no TensorFlow required)
 
 **Production Deployment:**
-- ⚠️ Replace SQLite with PostgreSQL
-- ⚠️ Set `DEBUG = False`
-- ⚠️ Configure specific `CORS_ALLOWED_ORIGINS`
-- ⚠️ Use environment variables for secrets
-- ⚠️ Enable HTTPS, CSRF protection
-- ⚠️ Set up real payment gateway integration
+- Replace SQLite with PostgreSQL
+- Set `DEBUG = False`
+- Configure specific `CORS_ALLOWED_ORIGINS`
+- Use environment variables for secrets
+- Enable HTTPS, CSRF protection
+- Set up real payment gateway integration
 
 ### Known Limitations
 
@@ -505,15 +505,15 @@ docker-compose exec backend coverage report
 
 ---
 
-## 📝 License
+## License
 
 This project is built for the Bristol Regional Food Network initiative.
 
 ---
 
-## 👥 Support & Contributing
+## Support & Contributing
 
 For issues, questions, or contributions, please open an issue on GitHub or contact the development team.
 
 **Last Updated:** May 2026  
-**Status:** ✅ Production-ready with experimental AI features
+**Status:** Production-ready with experimental AI features
