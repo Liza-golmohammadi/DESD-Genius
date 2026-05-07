@@ -1,3 +1,7 @@
+import os
+import stripe
+from decimal import Decimal
+
 from django.db.models import Sum, Count
 from django.utils import timezone
 from rest_framework.views import APIView
@@ -5,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 
 from .models import Payment, Settlement
+from cart.models import Cart, CartItem
 from .serializers import (
     PaymentSerializer,
     SettlementSerializer,
@@ -262,3 +267,58 @@ class SettlementReportView(APIView):
 
         serializer = SettlementReportSerializer(formatted_report, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CreatePaymentIntentView(APIView):
+    # Only logged-in customers can create a payment intent
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        # Set the Stripe secret key from environment variables (never hardcode this)
+        stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+
+        # Get the current user's cart from the database
+        try:
+            cart = Cart.objects.prefetch_related("items__product").get(
+                customer=request.user
+            )
+        except Cart.DoesNotExist:
+            return Response(
+                {"error": "No cart found for this user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Calculate the grand total by summing all cart item line totals
+        grand_total = sum(item.line_total for item in cart.items.all())
+
+        if grand_total <= 0:
+            return Response(
+                {"error": "Cart is empty."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Stripe amounts are in the smallest currency unit — pence for GBP
+        # e.g. £12.50 becomes 1250 pence
+        amount_in_pence = int(grand_total * 100)
+
+        # Create a PaymentIntent on Stripe's servers
+        # This reserves the payment and gives us a client_secret
+        # The client_secret is sent to the frontend so Stripe.js can confirm the card
+        intent = stripe.PaymentIntent.create(
+            amount=amount_in_pence,
+            currency="gbp",
+            # Metadata lets us trace this payment back to the user in Stripe's dashboard
+            metadata={"user_id": request.user.id, "user_email": request.user.email},
+        )
+
+        # Return the client_secret to the frontend
+        # The frontend uses this with Stripe.js to securely collect card details
+        # We also send the publishable key so the frontend can initialise Stripe
+        return Response(
+            {
+                "client_secret": intent.client_secret,
+                "publishable_key": os.environ.get("STRIPE_PUBLISHABLE_KEY"),
+                "amount": str(grand_total),
+            },
+            status=status.HTTP_200_OK,
+        )

@@ -123,6 +123,9 @@ class CheckoutInputSerializer(serializers.Serializer):
         child=serializers.DateField(input_formats=["%Y-%m-%d"]),
         required=True,
     )
+    # The frontend sends this after Stripe confirms the card payment
+    # Our backend uses it to verify the payment actually succeeded on Stripe's end
+    payment_intent_id = serializers.CharField(required=True)
 
     def validate_producer_delivery_dates(self, value):
         if not value:

@@ -2,6 +2,7 @@ from .models import Cart, CartItem
 from products.models import Product
 from decimal import Decimal
 from django.db import transaction
+from .food_miles import calculate_food_miles
 
 class CartService:
 
@@ -86,12 +87,16 @@ class CartService:
         food_miles_total = Decimal('0.00')
         item_count = 0
 
-        item_count = 0
+        # Get the customer's postcode for dynamic food miles calculation
+        customer_postcode = getattr(user, 'postcode', None)
+
+        # Cache postcode-based distances per producer so we don't call the API repeatedly
+        producer_distances = {}
 
         for item in items:
             producer = item.product.producer
             p_id = producer.id
-            
+
             if p_id not in producers_dict:
                 producers_dict[p_id] = {
                     'producer_id': p_id,
@@ -99,7 +104,7 @@ class CartService:
                     'items': [],
                     'producer_subtotal': Decimal('0.00'),
                 }
-            
+
             line_total = item.line_total
             producers_dict[p_id]['items'].append({
                 'product_id': item.product.id,
@@ -108,13 +113,24 @@ class CartService:
                 'unit_price': item.product.price,
                 'line_total': line_total,
             })
-            
+
             producers_dict[p_id]['producer_subtotal'] += line_total
             grand_total += line_total
             item_count += item.quantity
 
-            # Accumulate food miles
-            if item.product.food_miles:
+            # Dynamically calculate food miles from customer to producer postcode.
+            # If either postcode is missing or the API fails, fall back to the stored value.
+            if p_id not in producer_distances:
+                producer_postcode = getattr(producer, 'postcode', None)
+                dynamic = calculate_food_miles(customer_postcode, producer_postcode)
+                producer_distances[p_id] = dynamic  # May be None if calculation failed
+
+            distance = producer_distances[p_id]
+            if distance is not None:
+                # Use the real calculated distance
+                food_miles_total += distance * item.quantity
+            elif item.product.food_miles:
+                # Fall back to the stored estimate on the product
                 food_miles_total += item.product.food_miles * item.quantity
 
         # Create sorted list of producers by producer_id

@@ -19,6 +19,9 @@ services:
       - DB_PASSWORD=mypassword
       - DB_HOST=db
       - DB_PORT=5432
+      # Stripe test-mode keys — used by the backend to process payments
+      - STRIPE_SECRET_KEY=sk_test_51TUCDRHSmtwzhAJs4zk3WU2txJbpxUxYBUMnIUf8mZAagt8jCCV7tdrMLY69ndZnIhIXhzz98HrLsgTR0SM0qOhN00m9k5SyDE
+      - STRIPE_PUBLISHABLE_KEY=pk_test_51TUCDRHSmtwzhAJskhfgOciUJcMWKdxYDqCMp3lmSK1mHNgDTub6lYK8HbPkykCRaHFF8uogugrtyZ40eU9uI4Ux00uY8vGWhp
     depends_on:
       db:
         condition: service_healthy
