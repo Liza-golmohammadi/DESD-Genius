@@ -5,6 +5,7 @@ import {
   useEffect,
   useCallback,
 } from "react";
+import type React from "react";
 import { useNavigate } from "react-router";
 import api from "../api";
 
@@ -15,6 +16,11 @@ interface RegisterCustomerPayload {
   password: string;
   customer_role: string;
   accepted_terms: boolean;
+  phone?: string;
+  phone_number?: string;
+  address?: string;
+  postcode?: string;
+  delivery_address?: string;
 }
 
 interface RegisterProducerPayload {
@@ -25,6 +31,11 @@ interface RegisterProducerPayload {
   store_name: string;
   store_description?: string;
   store_contact?: string;
+  store_address?: string;
+  phone?: string;
+  phone_number?: string;
+  address?: string;
+  postcode?: string;
   accepted_terms: boolean;
 }
 
@@ -33,18 +44,23 @@ interface User {
   email: string;
   first_name?: string;
   last_name?: string;
-  customer_role?: string;
+  role?: "customer" | "producer" | "admin" | string;
+  phone?: string;
+  phone_number?: string;
+  address?: string;
   postcode?: string;
+  delivery_address?: string;
+  customer_role?: string;
   is_producer?: boolean;
   accepted_terms_at?: string;
   producer_profile?: {
     store_name: string;
     store_description: string;
     store_contact: string;
+    store_address?: string;
     store_created_at: string;
   } | null;
 }
-
 
 interface LoginPayload {
   email: string;
@@ -54,7 +70,7 @@ interface LoginPayload {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  setUser: React.Dispatch<React.SetStateAction<User | null>>; // set user
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
   loginUser: (payload: LoginPayload) => Promise<void>;
   registerCustomer: (payload: RegisterCustomerPayload) => Promise<void>;
   registerProducer: (payload: RegisterProducerPayload) => Promise<void>;
@@ -89,14 +105,17 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
   const loginUser = useCallback(
     async ({ email, password }: LoginPayload) => {
       const token = await api.post("/accounts/token/", { email, password });
+
       localStorage.setItem("access", token.data.access);
       localStorage.setItem("refresh", token.data.refresh);
 
       const res = await api.get<User>("/accounts/auth/me/");
       setUser(res.data);
-      console.log(res.data)
-      if (res.data.producer_profile) {
+
+      if (res.data.role === "producer" || res.data.producer_profile) {
         navigate("/producer/dashboard");
+      } else if (res.data.role === "admin") {
+        navigate("/admin");
       } else {
         navigate("/");
       }
@@ -113,6 +132,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
         setLoading(false);
         return;
       }
+
       try {
         const res = await api.get<User>("/accounts/auth/me/");
         setUser(res.data);
@@ -122,44 +142,45 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({
         setLoading(false);
       }
     };
+
     auth();
-  }, []);
+  }, [logoutUser]);
 
   const registerCustomer = useCallback(
-  async (payload: RegisterCustomerPayload) => {
-    await api.post("/accounts/auth/register/customer/", payload);
-    await loginUser({
-      email: payload.email,
-      password: payload.password,
-    });
-  },
-  [loginUser],
-);
+    async (payload: RegisterCustomerPayload) => {
+      await api.post("/accounts/auth/register/customer/", payload);
+      await loginUser({
+        email: payload.email,
+        password: payload.password,
+      });
+    },
+    [loginUser],
+  );
 
-const registerProducer = useCallback(
-  async (payload: RegisterProducerPayload) => {
-    await api.post("/accounts/auth/register/producer/", payload);
-    await loginUser({
-      email: payload.email,
-      password: payload.password,
-    });
-
-    // 3. Update producer profile (signal creates it, we just update it)
-    /* await api.patch("/accounts/auth/me/", {
-      producer_profile: {
-        store_name: payload.store_name,
-        store_description: payload.store_description,
-        store_contact: payload.store_contact,
-      },
-    }); */
-  },
-  [loginUser],
-);
+  const registerProducer = useCallback(
+    async (payload: RegisterProducerPayload) => {
+      await api.post("/accounts/auth/register/producer/", payload);
+      await loginUser({
+        email: payload.email,
+        password: payload.password,
+      });
+    },
+    [loginUser],
+  );
 
   const contextData = useMemo(
-    () => ({ user, loading, setUser, loginUser, registerCustomer, registerProducer, logoutUser }),
+    () => ({
+      user,
+      loading,
+      setUser,
+      loginUser,
+      registerCustomer,
+      registerProducer,
+      logoutUser,
+    }),
     [user, loading, loginUser, registerCustomer, registerProducer, logoutUser],
   );
+
   return (
     <AuthContext.Provider value={contextData}>{children}</AuthContext.Provider>
   );

@@ -11,6 +11,7 @@ interface SignupFormData {
   last_name: string;
   accepted_terms: boolean;
   customer_role: string;
+  organisation_name: string;
   postcode: string;
   store_name: string;
   store_description: string;
@@ -42,6 +43,7 @@ const Signup = () => {
     last_name: "",
     accepted_terms: false,
     customer_role: "individual",
+    organisation_name: "",
     postcode: "",
     store_name: "",
     store_description: "",
@@ -88,6 +90,7 @@ const Signup = () => {
           last_name: formData.last_name,
           accepted_terms: formData.accepted_terms,
           customer_role: formData.customer_role,
+          organisation_name: formData.organisation_name,
           postcode: formData.postcode,
         });
       }
@@ -275,6 +278,22 @@ const Signup = () => {
               <option value="community_group">Community Group</option>
               <option value="restaurant">Restaurant</option>
             </select>
+          )}
+
+          {/* Organisation name (community group / restaurant) */}
+          {!isProducer && (formData.customer_role === "community_group" || formData.customer_role === "restaurant") && (
+            <input
+              name="organisation_name"
+              type="text"
+              value={formData.organisation_name}
+              onChange={handleChange}
+              placeholder={
+                formData.customer_role === "community_group"
+                  ? "Organisation / Institution name"
+                  : "Restaurant name"
+              }
+              style={inputStyle}
+            />
           )}
 
           {/* Producer fields */}

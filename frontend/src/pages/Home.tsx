@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router";
 import api from "../api";
+import useAuth from "../context/useAuth";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Category = {
@@ -195,10 +196,231 @@ function ProductCard({
   );
 }
 
+// ── AI Recommendations Types ──────────────────────────────────────────────────
+type RecItem = {
+  product_id: number;
+  product_name: string;
+  price: string;
+  producer_name: string;
+  reason: string;
+  quality_grade: string | null;
+  quality_boosted: boolean;
+  has_discount: boolean;
+  discount_percentage: number;
+};
+
+type QuickReorderItem = {
+  product_id: number;
+  product_name: string;
+  price: string;
+  times_ordered: number;
+  available: boolean;
+  stock_level: number;
+};
+
+type SurplusDeal = {
+  product_id: number;
+  product_name: string;
+  price: string;
+  producer_name: string;
+  discount_percentage: number;
+  grade: string;
+};
+
+type AiRecsPayload = {
+  recommendations: RecItem[];
+  quick_reorder: QuickReorderItem[];
+  surplus_deals: SurplusDeal[];
+  personalisation_score: number;
+  products_boosted: number;
+};
+
+const GRADE_BG:  Record<string, string> = { A: "#d1fae5", B: "#fef3c7", C: "#fee2e2" };
+const GRADE_FG:  Record<string, string> = { A: "#065f46", B: "#92400e", C: "#991b1b" };
+
+function AiRecsPanel({
+  data,
+  onAddToCart,
+  addingId,
+}: {
+  data: AiRecsPayload;
+  onAddToCart: (id: number) => void;
+  addingId: number | null;
+}) {
+  const recs = data.recommendations.slice(0, 5);
+  const reorders = data.quick_reorder.slice(0, 4);
+  const deals = data.surplus_deals.slice(0, 3);
+
+  if (recs.length === 0 && reorders.length === 0 && deals.length === 0) return null;
+
+  return (
+    <div style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)", borderBottom: "1px solid #d1fae5", padding: "20px 0" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px", display: "flex", flexDirection: "column", gap: 18 }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18 }}>🤖</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: "#1b4332" }}>AI Picks For You</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#065f46", background: "#bbf7d0", borderRadius: 20, padding: "2px 10px", letterSpacing: 0.3 }}>
+              PERSONALISED
+            </span>
+          </div>
+          {data.products_boosted > 0 && (
+            <span style={{ fontSize: 12, color: "#6b7280" }}>
+              {data.products_boosted} quality-boosted · AI grade filter active
+            </span>
+          )}
+        </div>
+
+        {/* Recommendations carousel */}
+        {recs.length > 0 && (
+          <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
+            {recs.map((r) => (
+              <div
+                key={r.product_id}
+                style={{
+                  flexShrink: 0,
+                  width: 180,
+                  background: "#fff",
+                  borderRadius: 14,
+                  padding: "14px 14px 12px",
+                  boxShadow: "0 1px 8px rgba(0,0,0,0.06)",
+                  border: r.quality_boosted ? "1px solid #86efac" : "1px solid #f0f0f0",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1b4332", lineHeight: 1.3 }}>{r.product_name}</div>
+                  {r.quality_grade && (
+                    <span style={{
+                      flexShrink: 0,
+                      marginLeft: 4,
+                      width: 20,
+                      height: 20,
+                      borderRadius: 5,
+                      background: GRADE_BG[r.quality_grade] ?? "#f3f4f6",
+                      color: GRADE_FG[r.quality_grade] ?? "#374151",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}>
+                      {r.quality_grade}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: "#6b7280", lineHeight: 1.4 }}>{r.reason}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: "#1b4332" }}>
+                    £{parseFloat(r.price).toFixed(2)}
+                    {r.has_discount && r.discount_percentage > 0 && (
+                      <span style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: "#92400e", background: "#fef3c7", borderRadius: 4, padding: "1px 5px" }}>
+                        -{r.discount_percentage.toFixed(0)}%
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <button
+                  onClick={() => onAddToCart(r.product_id)}
+                  disabled={addingId === r.product_id}
+                  style={{
+                    padding: "6px 0",
+                    borderRadius: 8,
+                    border: "none",
+                    background: addingId === r.product_id ? "#9ca3af" : "#2d6a4f",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 12,
+                    cursor: addingId === r.product_id ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {addingId === r.product_id ? "Adding…" : "Add to basket"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Quick reorder + surplus deals row */}
+        {(reorders.length > 0 || deals.length > 0) && (
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+
+            {/* Quick reorder */}
+            {reorders.length > 0 && (
+              <div style={{ flex: 1, minWidth: 260 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>
+                  Quick Reorder
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {reorders.map((r) => (
+                    <div key={r.product_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff", borderRadius: 10, padding: "9px 12px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{r.product_name}</div>
+                        <div style={{ fontSize: 11, color: "#9ca3af" }}>Ordered {r.times_ordered}× · {r.available ? `${r.stock_level} in stock` : "out of stock"}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#1b4332" }}>£{parseFloat(r.price).toFixed(2)}</span>
+                        <button
+                          onClick={() => onAddToCart(r.product_id)}
+                          disabled={!r.available || addingId === r.product_id}
+                          style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: r.available ? "#1b4332" : "#9ca3af", color: "#fff", fontWeight: 700, fontSize: 11, cursor: r.available ? "pointer" : "not-allowed" }}
+                        >
+                          {addingId === r.product_id ? "…" : "Re-add"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Surplus deals */}
+            {deals.length > 0 && (
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>
+                  Surplus Deals
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {deals.map((d) => (
+                    <div key={d.product_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "9px 12px" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{d.product_name}</div>
+                        <div style={{ fontSize: 11, color: "#92400e" }}>
+                          Grade {d.grade} · {d.discount_percentage.toFixed(0)}% off
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>£{parseFloat(d.price).toFixed(2)}</span>
+                        <button
+                          onClick={() => onAddToCart(d.product_id)}
+                          disabled={addingId === d.product_id}
+                          style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "#d97706", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}
+                        >
+                          {addingId === d.product_id ? "…" : "Grab deal"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Home Component ───────────────────────────────────────────────────────
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get("q") ?? "";
+  const { user } = useAuth();
+  const isCustomer = !!user && !user.producer_profile;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -207,34 +429,45 @@ export default function Home() {
   const [actionMessage, setActionMessage] = useState("");
   const [addingProductId, setAddingProductId] = useState<number | null>(null);
 
+  const [aiRecs, setAiRecs] = useState<AiRecsPayload | null>(null);
+
   const [activeCategories, setActiveCategories] = useState<number[]>([]);
   const [organicOnly, setOrganicOnly] = useState(false);
   const [activeProducers, setActiveProducers] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"popular" | "price-asc" | "price-desc" | "name">("popular");
-  const [maxPrice, setMaxPrice] = useState<number>(20);
+  const [priceFilterEnabled, setPriceFilterEnabled] = useState(false);
+  const [minPrice, setMinPrice] = useState("0");
+  const [maxPrice, setMaxPrice] = useState("");
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setPageError("");
+
+      const [productsRes, categoriesRes] = await Promise.all([
+        api.get<Product[]>("/api/products/"),
+        api.get<Category[]>("/api/products/categories/"),
+      ]);
+
+      setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+      setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
+    } catch (error: any) {
+      setPageError(error?.response?.data?.error || error?.message || "Failed to load products.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setPageError("");
-
-        const [productsRes, categoriesRes] = await Promise.all([
-          api.get<Product[]>("/api/products/"),
-          api.get<Category[]>("/api/products/categories/"),
-        ]);
-
-        setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
-        setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
-      } catch (error: any) {
-        setPageError(error?.response?.data?.error || error?.message || "Failed to load products.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!isCustomer) return;
+    api.get<AiRecsPayload>("/api/ai/recommendations/")
+      .then((res) => setAiRecs(res.data))
+      .catch(() => {}); // silently hide if not available
+  }, [isCustomer]);
 
   const producerNames = useMemo(() => {
     return Array.from(new Set(products.map((p) => p.producer_name))).sort((a, b) =>
@@ -267,14 +500,26 @@ export default function Home() {
       list = list.filter((p) => activeProducers.includes(p.producer_name));
     }
 
-    list = list.filter((p) => Number(p.price) <= maxPrice);
+    if (priceFilterEnabled) {
+      const min = Math.max(0, Number(minPrice) || 0);
+      const parsedMax = Number(maxPrice);
+      const max =
+        maxPrice.trim() === "" || Number.isNaN(parsedMax) ? Infinity : Math.max(0, parsedMax);
+
+      list = list.filter((p) => {
+        const price = Number(p.price);
+        if (Number.isNaN(price)) return false;
+
+        return price >= min && price <= max;
+      });
+    }
 
     if (sortBy === "price-asc") list.sort((a, b) => Number(a.price) - Number(b.price));
     else if (sortBy === "price-desc") list.sort((a, b) => Number(b.price) - Number(a.price));
     else if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
 
     return list;
-  }, [products, search, activeCategories, organicOnly, activeProducers, sortBy, maxPrice]);
+  }, [products, search, activeCategories, organicOnly, activeProducers, sortBy, priceFilterEnabled, minPrice, maxPrice]);
 
   const countPerCategory = useMemo(() => {
     return categories.reduce((acc, cat) => {
@@ -319,6 +564,13 @@ export default function Home() {
       setAddingProductId(null);
     }
   }
+
+  const minPriceNumber = Math.max(0, Number(minPrice) || 0);
+  const maxPriceNumber = Number(maxPrice);
+  const maxPriceIsUnlimited = maxPrice.trim() === "" || Number.isNaN(maxPriceNumber);
+  const priceRangeLabel = `£${minPriceNumber.toFixed(2)} to ${
+    maxPriceIsUnlimited ? "Unlimited" : `£${Math.max(0, maxPriceNumber).toFixed(2)}`
+  }`;
 
   const s = {
     page: {
@@ -415,8 +667,27 @@ export default function Home() {
 
   if (pageError) {
     return (
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 20px", color: "crimson" }}>
-        {pageError}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "60px 20px", textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+        <div style={{ color: "#c0392b", fontWeight: 700, fontSize: 18, marginBottom: 8 }}>
+          Could not load products
+        </div>
+        <div style={{ color: "#666", fontSize: 14, marginBottom: 24 }}>{pageError}</div>
+        <button
+          onClick={loadData}
+          style={{
+            padding: "10px 28px",
+            background: "#2d6a4f",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -497,6 +768,14 @@ export default function Home() {
         </div>
       </div>
 
+      {aiRecs && (
+        <AiRecsPanel
+          data={aiRecs}
+          onAddToCart={handleAddToCart}
+          addingId={addingProductId}
+        />
+      )}
+
       <div style={s.body}>
         <aside style={s.sidebar}>
           <div style={s.sideSection}>
@@ -523,22 +802,98 @@ export default function Home() {
 
           <div style={s.sideSection}>
             <div style={s.sideHeading}>Price</div>
-            <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
-              Up to <strong style={{ color: "#1b4332" }}>£{maxPrice.toFixed(2)}</strong>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={20}
-              step={0.5}
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(Number(e.target.value))}
-              style={{ width: "100%", accentColor: "#2d6a4f" }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#aaa", marginTop: 4 }}>
-              <span>£1</span>
-              <span>£20</span>
-            </div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                fontSize: 14,
+                marginBottom: priceFilterEnabled ? 12 : 4,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={priceFilterEnabled}
+                onChange={(e) => setPriceFilterEnabled(e.target.checked)}
+                style={{ accentColor: "#2d6a4f", width: 16, height: 16 }}
+              />
+              Filter by price
+            </label>
+
+            {!priceFilterEnabled ? (
+              <div style={{ fontSize: 12, color: "#888", lineHeight: 1.4 }}>
+                Price filter is off, so products at any price are shown.
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
+                  Range: <strong style={{ color: "#1b4332" }}>{priceRangeLabel}</strong>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <label style={{ fontSize: 12, color: "#666" }}>
+                    Min
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={minPrice}
+                      onChange={(e) => setMinPrice(e.target.value)}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        marginTop: 4,
+                        padding: "7px 8px",
+                        borderRadius: 8,
+                        border: "1px solid #ddd",
+                        fontSize: 13,
+                      }}
+                    />
+                  </label>
+
+                  <label style={{ fontSize: 12, color: "#666" }}>
+                    Max
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={maxPrice}
+                      onChange={(e) => setMaxPrice(e.target.value)}
+                      placeholder="No max"
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        marginTop: 4,
+                        padding: "7px 8px",
+                        borderRadius: 8,
+                        border: "1px solid #ddd",
+                        fontSize: 13,
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setMinPrice("0");
+                    setMaxPrice("");
+                  }}
+                  style={{
+                    marginTop: 8,
+                    padding: "6px 10px",
+                    border: "1px solid #ddd",
+                    borderRadius: 8,
+                    background: "#fff",
+                    color: "#555",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  Reset price range
+                </button>
+              </>
+            )}
           </div>
 
           <div style={s.sideSection}>
@@ -581,14 +936,16 @@ export default function Home() {
             ))}
           </div>
 
-          {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0) && (
+          {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0 || priceFilterEnabled) && (
             <div style={{ padding: "12px 20px 4px" }}>
               <button
                 onClick={() => {
                   setActiveCategories([]);
                   setOrganicOnly(false);
                   setActiveProducers([]);
-                  setMaxPrice(20);
+                  setPriceFilterEnabled(false);
+                  setMinPrice("0");
+                  setMaxPrice("");
                 }}
                 style={{
                   width: "100%",
@@ -666,7 +1023,7 @@ export default function Home() {
             </div>
           )}
 
-          {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0 || search) && (
+          {(activeCategories.length > 0 || organicOnly || activeProducers.length > 0 || priceFilterEnabled || search) && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
               {categories
                 .filter((c) => activeCategories.includes(c.id))
@@ -702,6 +1059,27 @@ export default function Home() {
                   }}
                 >
                   Organic ×
+                </span>
+              )}
+
+              {priceFilterEnabled && (
+                <span
+                  onClick={() => {
+                    setPriceFilterEnabled(false);
+                    setMinPrice("0");
+                    setMaxPrice("");
+                  }}
+                  style={{
+                    background: "#e8f5e9",
+                    color: "#1b4332",
+                    padding: "5px 12px",
+                    borderRadius: 20,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Price: {priceRangeLabel} ×
                 </span>
               )}
 

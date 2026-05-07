@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import api from "../api";
+import useAuth from "../context/useAuth";
 
 type OrderLineItem = {
   id?: number;
@@ -46,6 +47,17 @@ const OrderDetail = () => {
   const [reordering, setReordering] = useState(false);
   const [error, setError] = useState("");
 
+  // Recurring order modal state
+  const { user } = useAuth();
+  const isRestaurant = user?.customer_role === "restaurant";
+  const [showRecurring, setShowRecurring] = useState(false);
+  const [recurFreq, setRecurFreq] = useState("weekly");
+  const [recurDate, setRecurDate] = useState("");
+  const [recurEnd, setRecurEnd] = useState("");
+  const [recurName, setRecurName] = useState("");
+  const [recurCreating, setRecurCreating] = useState(false);
+  const [recurMsg, setRecurMsg] = useState("");
+
   useEffect(() => {
     const fetchOrderDetail = async () => {
       if (!orderNumber) {
@@ -81,6 +93,27 @@ const OrderDetail = () => {
       setError(err?.response?.data?.error || err?.message || "Failed to reorder items.");
     } finally {
       setReordering(false);
+    }
+  };
+
+  const handleCreateRecurring = async () => {
+    if (!orderNumber || !recurDate) return;
+    setRecurCreating(true);
+    try {
+      await api.post("/api/orders/recurring/", {
+        source_order_number: orderNumber,
+        name: recurName,
+        frequency: recurFreq,
+        next_delivery_date: recurDate,
+        end_date: recurEnd || null,
+      });
+      setShowRecurring(false);
+      setRecurMsg("Recurring order schedule created!");
+      setTimeout(() => setRecurMsg(""), 4000);
+    } catch (err: any) {
+      setError(err?.response?.data?.error || "Failed to create recurring order.");
+    } finally {
+      setRecurCreating(false);
     }
   };
 
@@ -246,6 +279,7 @@ const OrderDetail = () => {
       </button>
 
       {error && <div style={errorBoxStyle}>{error}</div>}
+      {recurMsg && <div style={successBoxStyle}>{recurMsg}</div>}
 
       <div style={heroCardStyle}>
         <div>
@@ -280,6 +314,16 @@ const OrderDetail = () => {
           >
             {reordering ? "Reordering..." : "Reorder"}
           </button>
+
+          {isRestaurant && order.status === "delivered" && (
+            <button
+              onClick={() => setShowRecurring(true)}
+              style={recurringBtnStyle}
+              type="button"
+            >
+              🔄 Set Up Recurring
+            </button>
+          )}
         </div>
       </div>
 
@@ -397,6 +441,70 @@ const OrderDetail = () => {
           </div>
         )}
       </div>
+
+      {/* Recurring order creation modal */}
+      {showRecurring && (
+        <div style={modalOverlay} onClick={() => setShowRecurring(false)}>
+          <div style={modalContent} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ marginTop: 0, color: "#1b4332" }}>🔄 Set Up Recurring Order</h2>
+            <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20 }}>
+              Create a recurring schedule from order <strong>{order.order_number}</strong>.
+              All items will be copied to the schedule.
+            </p>
+
+            <label style={fieldLabel}>Schedule Name (optional)</label>
+            <input
+              value={recurName}
+              onChange={(e) => setRecurName(e.target.value)}
+              placeholder="e.g. Weekly Produce"
+              style={fieldInput}
+            />
+
+            <label style={fieldLabel}>Frequency</label>
+            <select value={recurFreq} onChange={(e) => setRecurFreq(e.target.value)} style={fieldInput}>
+              <option value="weekly">Weekly</option>
+              <option value="fortnightly">Fortnightly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+
+            <label style={fieldLabel}>First Delivery Date</label>
+            <input
+              type="date"
+              value={recurDate}
+              onChange={(e) => setRecurDate(e.target.value)}
+              style={fieldInput}
+            />
+
+            <label style={fieldLabel}>End Date (optional)</label>
+            <input
+              type="date"
+              value={recurEnd}
+              onChange={(e) => setRecurEnd(e.target.value)}
+              style={fieldInput}
+            />
+
+            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+              <button
+                onClick={handleCreateRecurring}
+                disabled={recurCreating || !recurDate}
+                style={{
+                  ...reorderButtonStyle,
+                  opacity: recurCreating || !recurDate ? 0.6 : 1,
+                  marginTop: 0,
+                }}
+              >
+                {recurCreating ? "Creating..." : "Create Schedule"}
+              </button>
+              <button
+                onClick={() => setShowRecurring(false)}
+                style={{ ...reorderButtonStyle, background: "#fff", color: "#374151", border: "1px solid #d1d5db", marginTop: 0 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -630,6 +738,66 @@ const errorBoxStyle: React.CSSProperties = {
   padding: "16px",
   borderRadius: "12px",
   marginBottom: "16px",
+};
+
+const successBoxStyle: React.CSSProperties = {
+  backgroundColor: "#dcfce7",
+  color: "#15803d",
+  border: "1px solid #86efac",
+  padding: "16px",
+  borderRadius: "12px",
+  marginBottom: "16px",
+  fontWeight: 600,
+};
+
+const recurringBtnStyle: React.CSSProperties = {
+  marginTop: "16px",
+  padding: "12px 18px",
+  borderRadius: "12px",
+  border: "1px solid #d97706",
+  backgroundColor: "#fffbeb",
+  color: "#b45309",
+  fontWeight: 700,
+  fontSize: "14px",
+  cursor: "pointer",
+};
+
+const modalOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.4)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1000,
+};
+
+const modalContent: React.CSSProperties = {
+  background: "#fff",
+  borderRadius: 16,
+  padding: 32,
+  maxWidth: 460,
+  width: "90%",
+  boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+};
+
+const fieldLabel: React.CSSProperties = {
+  display: "block",
+  fontSize: 13,
+  fontWeight: 700,
+  color: "#374151",
+  marginTop: 14,
+  marginBottom: 4,
+};
+
+const fieldInput: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  border: "1px solid #d1d5db",
+  borderRadius: 10,
+  fontSize: 14,
+  outline: "none",
+  boxSizing: "border-box",
 };
 
 export default OrderDetail;

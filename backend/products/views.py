@@ -1,5 +1,3 @@
-from django.shortcuts import render
-
 from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -13,8 +11,10 @@ from .serializers import (
     ProductCreateSerializer,
 )
 
+
 def _is_producer(user) -> bool:
     return getattr(user, "is_authenticated", False) and getattr(user, "role", None) == "producer"
+
 
 def _is_admin(user) -> bool:
     return getattr(user, "is_authenticated", False) and getattr(user, "role", None) == "admin"
@@ -48,7 +48,11 @@ class ProductListCreateView(APIView):
 
         search = request.query_params.get("search")
         if search:
-            qs = qs.filter(Q(name__icontains=search) | Q(description__icontains=search) | Q(sku__icontains=search))
+            qs = qs.filter(
+                Q(name__icontains=search)
+                | Q(description__icontains=search)
+                | Q(sku__icontains=search)
+            )
 
         organic = request.query_params.get("organic")
         if organic in ("true", "false"):
@@ -56,17 +60,11 @@ class ProductListCreateView(APIView):
 
         min_price = request.query_params.get("min_price")
         if min_price:
-            try:
-                qs = qs.filter(price__gte=min_price)
-            except Exception:
-                pass
+            qs = qs.filter(price__gte=min_price)
 
         max_price = request.query_params.get("max_price")
         if max_price:
-            try:
-                qs = qs.filter(price__lte=max_price)
-            except Exception:
-                pass
+            qs = qs.filter(price__lte=max_price)
 
         allergen = request.query_params.get("allergen")
         if allergen:
@@ -76,36 +74,88 @@ class ProductListCreateView(APIView):
         if producer_id:
             qs = qs.filter(producer_id=producer_id)
 
-        return Response(ProductListSerializer(qs.order_by("name"), many=True, context={"request": request}).data)
+        return Response(
+            ProductListSerializer(
+                qs.order_by("name"),
+                many=True,
+                context={"request": request},
+            ).data
+        )
 
     def post(self, request):
         if not request.user.is_authenticated:
-            return Response({"error": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"error": "Authentication required."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         if not _is_producer(request.user):
-            return Response({"error": "Only producers can create products."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Only producers can create products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = ProductCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product = serializer.save(producer=request.user)
-        return Response(ProductDetailSerializer(product, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+        return Response(
+            ProductDetailSerializer(product, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ProductDetailView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def get(self, request, product_id: int):
+    def get_product(self, request, product_id):
         try:
             product = Product.objects.select_related("category", "producer").get(id=product_id)
         except Product.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return None
 
         if not product.is_orderable():
             if _is_admin(request.user):
-                pass
-            elif _is_producer(request.user) and product.producer_id == request.user.id:
-                pass
-            else:
-                return Response(status=status.HTTP_404_NOT_FOUND)
+                return product
+            if _is_producer(request.user) and product.producer_id == request.user.id:
+                return product
+            return None
+
+        return product
+
+    def get(self, request, product_id: int):
+        product = self.get_product(request, product_id)
+
+        if product is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(ProductDetailSerializer(product, context={"request": request}).data)
+
+    def patch(self, request, product_id: int):
+        if not _is_producer(request.user):
+            return Response(
+                {"error": "Only producers can update products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if product.producer_id != request.user.id:
+            return Response(
+                {"error": "You can only update your own products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = ProductCreateSerializer(
+            instance=product,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
         return Response(ProductDetailSerializer(product, context={"request": request}).data)
 
@@ -115,7 +165,10 @@ class ProductInventoryUpdateView(APIView):
 
     def patch(self, request, product_id: int):
         if not _is_producer(request.user):
-            return Response({"error": "Only producers can update inventory."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "Only producers can update inventory."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         try:
             product = Product.objects.get(id=product_id)
@@ -123,14 +176,32 @@ class ProductInventoryUpdateView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         if product.producer_id != request.user.id:
-            return Response({"error": "You can only update your own products."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "You can only update your own products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-        allowed_fields = {"stock_quantity", "low_stock_threshold", "is_available", "available_from", "available_to"}
+        allowed_fields = {
+            "stock_quantity",
+            "low_stock_threshold",
+            "is_available",
+            "available_from",
+            "available_to",
+        }
+
         for field in list(request.data.keys()):
             if field not in allowed_fields:
-                return Response({"error": f"Field '{field}' is not allowed here."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": f"Field '{field}' is not allowed here."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        serializer = ProductCreateSerializer(instance=product, data=request.data, partial=True)
+        serializer = ProductCreateSerializer(
+            instance=product,
+            data=request.data,
+            partial=True,
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
         return Response(ProductDetailSerializer(product, context={"request": request}).data)

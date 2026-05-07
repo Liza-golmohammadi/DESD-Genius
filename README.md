@@ -1,362 +1,519 @@
-# Bristol Regional Food Network
+# 🌱 DESD Genius - Bristol Regional Food Network
 
-A full-stack web platform connecting local food producers in the Bristol region with customers. Producers can list and manage their products; customers can browse, add items to a cart, and place orders split across multiple producers. The system enforces role-based access control throughout, with separate workflows for customers, producers, and administrators.
+> A full-stack marketplace platform connecting local food producers with conscious consumers. Features AI-powered quality assessment, personalized recommendations, review system, and dynamic discount management.
 
----
-
-## Table of Contents
-
-1. [Project Overview](#1-project-overview)
-2. [Architecture](#2-architecture)
-3. [Technology Stack](#3-technology-stack)
-4. [Repository Structure](#4-repository-structure)
-5. [Prerequisites](#5-prerequisites)
-6. [Backend Setup](#6-backend-setup)
-7. [Frontend Setup](#7-frontend-setup)
-8. [Running the Application](#8-running-the-application)
-9. [Environment Variables](#9-environment-variables)
-10. [API Reference](#10-api-reference)
-11. [Authentication](#11-authentication)
-12. [Running Tests](#12-running-tests)
-13. [Data Model Summary](#13-data-model-summary)
-14. [Known Limitations](#14-known-limitations)
+[![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-6.0-darkgreen?logo=django)](https://www.djangoproject.com/)
+[![React](https://img.shields.io/badge/React-19-blue?logo=react)](https://react.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)](https://www.postgresql.org/)
 
 ---
 
-## 1. Project Overview
+## ✨ Key Features
 
-The Bristol Regional Food Network platform addresses the challenge of connecting small-scale regional food producers with local consumers. It provides:
+### 🛒 **Marketplace & Commerce**
+- **Multi-producer checkout** — Single cart split across multiple producers automatically
+- **Persistent cart** — Save items between sessions
+- **Role-based access** — Customer, Producer, and Admin workflows
+- **Stock management** — Real-time inventory with low-stock alerts
+- **Seasonal availability** — Products with harvest dates and availability windows
 
-- **Customer-facing marketplace** — browse products by category, filter by producer or organic certification, search, and add items to a persistent cart.
-- **Checkout and order management** — customers submit a delivery address and preferred delivery date per producer; the system splits a single checkout into per-producer sub-orders.
-- **Producer dashboard** — producers manage their product listings, update inventory and availability windows, and track incoming orders through a defined status lifecycle.
-- **Role-based access control** — three roles (`customer`, `producer`, `admin`) with distinct permissions enforced at the API level.
+### 🤖 **AI-Powered Quality & Recommendations**
+- **Automatic quality assessment** — CNN-based image analysis or mock mode
+- **Hybrid recommendation engine** — Combines collaborative filtering + quality data
+- **Explainable AI (XAI)** — Technical and non-technical explanations for recommendations
+- **Fairness monitoring** — Gini coefficient tracking for producer representation
+- **Surplus deals** — Automatically discounted items from quality assessments
+- **Quick reorder** — AI-suggested products matched to purchase history
+
+### ⭐ **Customer Reviews & Ratings**
+- **5-star verified reviews** — Only customers with delivered orders can review
+- **Review aggregation** — Average ratings and distribution charts per product
+- **Duplicate prevention** — One review per product per customer
+- **Helpful tracking** — Community feedback on reviews
+- **Review admin** — Django admin panel for moderation
+
+### 💰 **Discount & Coupon System**
+- **Flexible coupons** — Percentage or fixed amount discounts
+- **Usage limits** — Global and per-user limits
+- **Minimum order values** — Enforce spending thresholds
+- **Validity periods** — Time-based expiration
+- **Product discounts** — Automatic discounts from quality grades
+- **Admin dashboard** — Coupon creation and performance tracking
+
+### 🌍 **Sustainability & Traceability**
+- **Food miles tracking** — Distance from farm to customer (optional)
+- **Organic certification** — Searchable organic product filter
+- **Farm origin** — Producer location and story
+- **Storage tips** — Product care instructions
+- **Recipe ideas** — Suggested recipes per product
+
+### 🔒 **Privacy & Compliance**
+- **GDPR-ready** — Data deletion endpoints
+- **JWT authentication** — Stateless, token-based auth
+- **Role-based access control** — Enforced at API and view level
+- **Session management** — Auto-refreshing tokens with 60min lifetime
+- **Product interaction logging** — Transparent data collection for ML
 
 ---
 
-## 2. Architecture
-
-The application follows a decoupled client–server architecture:
+## 📊 Architecture
 
 ```
-┌─────────────────────────┐        HTTP / JSON        ┌──────────────────────────┐
-│   React Frontend        │  ◄──────────────────────► │   Django REST Backend    │
-│   Vite + TypeScript     │        JWT Bearer          │   Django 6 + DRF         │
-│   React Router v7       │                            │   SQLite (dev)           │
-└─────────────────────────┘                            └──────────────────────────┘
+┌─────────────────────────────────────┐
+│     React SPA Frontend (Vite)       │
+│  - TypeScript + React Router v7     │
+│  - JWT authentication (localStorage)│
+│  - Real-time cart & recommendations │
+└────────────────┬────────────────────┘
+                 │ REST API / JSON
+                 │ Bearer JWT
+                 ▼
+┌─────────────────────────────────────┐
+│   Django REST Backend               │
+│  - Python 3.12 + Django 6.0         │
+│  - PostgreSQL database              │
+│  - TensorFlow CNN (optional)        │
+│  - Scikit-learn collaborative filter│
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+        ┌─────────────────┐
+        │   PostgreSQL    │
+        │    Database     │
+        └─────────────────┘
 ```
 
-The frontend is a single-page application (SPA) that communicates exclusively with the backend REST API. All authentication is handled via JSON Web Tokens (JWT); no session cookies are used. The frontend stores tokens in `localStorage` and attaches them to requests via an Axios interceptor, automatically refreshing the access token when it expires.
+### Backend Modules
 
-The backend is structured as four discrete Django applications, each responsible for a distinct bounded context:
-
-| App | Responsibility |
-|---|---|
-| `accounts` | Custom user model, registration, login, producer profile management |
-| `products` | Product and category models, product CRUD, inventory management |
-| `cart` | Per-customer persistent cart, item management |
-| `orders` | Checkout service, order splitting by producer, status lifecycle |
+| Module | Purpose | Key Models |
+|--------|---------|-----------|
+| `accounts` | User management, authentication | User, Producer profile |
+| `products` | Product catalog, inventory | Product, Category, ProductDiscount |
+| `cart` | Shopping cart management | Cart, CartItem |
+| `orders` | Checkout, order splitting, status | Order, ProducerOrder, ProducerOrderItem |
+| `ai_service` | Quality assessment, recommendations | QualityAssessment, ProductInteraction, RecommendationLog |
+| `reviews` | Customer reviews & ratings | Review |
+| `discounts` | Coupons & promotions | Coupon, CouponUse, ProductDiscount |
 
 ---
 
-## 3. Technology Stack
+## 🛠️ Tech Stack
 
 ### Backend
-| Component | Version |
-|---|---|
-| Python | 3.10+ |
-| Django | 6.0 |
-| Django REST Framework | 3.x |
-| djangorestframework-simplejwt | 5.x |
-| django-cors-headers | 4.x |
-| SQLite | (development database) |
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Python | 3.12 | Runtime |
+| Django | 6.0.2 | Web framework |
+| DRF | 3.16 | REST API |
+| SimpleJWT | 5.5 | Authentication |
+| PostgreSQL | 16 | Database |
+| TensorFlow | 2.13 | CNN quality classifier |
+| Scikit-learn | 1.3 | Collaborative filtering |
 
 ### Frontend
-| Component | Version |
-|---|---|
-| React | 19 |
-| TypeScript | 5.9 |
-| Vite | 7 |
-| React Router | 7 |
-| Axios | 1.x |
+| Tool | Version | Purpose |
+|------|---------|---------|
+| React | 19 | UI framework |
+| TypeScript | 5.9 | Type safety |
+| Vite | 7 | Build tool |
+| React Router | 7 | Routing |
+| Axios | 1.x | HTTP client |
+| Lucide Icons | Latest | UI icons |
 
 ---
 
-## 4. Repository Structure
+## 📁 Repository Structure
 
 ```
-.
+DESD-Genius/
 ├── backend/
-│   ├── accounts/           # User model, auth views, producer profile
-│   │   ├── models.py
-│   │   ├── serializers.py
-│   │   ├── views.py
-│   │   └── urls.py
-│   ├── products/           # Product + category models and API
-│   ├── cart/               # Cart model and service layer
-│   ├── orders/             # Order creation, splitting, status updates
+│   ├── accounts/              # User model, auth, profiles
+│   ├── products/              # Product catalog
+│   ├── cart/                  # Shopping cart service
+│   ├── orders/                # Order management
+│   ├── ai_service/            # Quality + recommendations
+│   │   ├── models.py          # QualityAssessment, RecommendationLog
+│   │   ├── services/
+│   │   │   ├── quality_classifier.py    # CNN wrapper
+│   │   │   ├── recommendations.py       # Collaborative filtering
+│   │   │   └── xai.py                   # Explanations
+│   │   └── views.py           # Assessment & recommendation endpoints
+│   ├── reviews/               # Customer reviews
+│   ├── discounts/             # Coupons & discounts
+│   ├── recipes/               # Recipe suggestions
+│   ├── payments/              # Payment processing
 │   ├── backend/
-│   │   ├── settings.py
-│   │   └── urls.py         # Root URL configuration
-│   ├── manage.py
-│   └── db.sqlite3          # Development database (not committed)
+│   │   ├── settings.py        # Django config
+│   │   └── urls.py            # Route definitions
+│   ├── Dockerfile
+│   └── requirements.txt
 │
-└── frontend/
-    ├── src/
-    │   ├── api.ts                    # Axios instance + JWT interceptors
-    │   ├── App.tsx                   # Routes and layout
-    │   ├── context/                  # Auth context (AuthContext + useAuth)
-    │   ├── components/               # ProtectedRoute
-    │   ├── data/
-    │   │   └── fakeProducts.ts       # Static product dataset for UI development
-    │   └── pages/
-    │       ├── Home.tsx              # Marketplace browse page
-    │       ├── Login.tsx
-    │       ├── Signup.tsx
-    │       ├── User.tsx              # Customer profile
-    │       ├── Orders.tsx            # Customer order history
-    │       ├── Producers.tsx         # Producer directory
-    │       ├── ProducerDetail.tsx
-    │       └── ProducerDashboard.tsx # Producer management dashboard
-    ├── package.json
-    └── vite.config.ts
+├── frontend/
+│   ├── src/
+│   │   ├── api.ts                      # Axios + JWT interceptor
+│   │   ├── App.tsx                     # Routes
+│   │   ├── context/                    # Auth context
+│   │   ├── components/
+│   │   │   ├── ReviewsSection.tsx      # Review form & listing
+│   │   │   ├── CouponForm.tsx          # Discount code input
+│   │   │   └── DiscountBadge.tsx       # Visual discount indicator
+│   │   └── pages/
+│   │       ├── Home.tsx                # Marketplace
+│   │       ├── ProductDetail.tsx       # Product page + reviews
+│   │       ├── Checkout.tsx            # Order confirmation + coupons
+│   │       ├── RescueMarket.tsx        # AI surplus deals
+│   │       └── Login.tsx, Signup.tsx
+│   ├── Dockerfile
+│   └── package.json
+│
+├── docker-compose.yml
+└── README.md (this file)
 ```
 
 ---
 
-## 5. Prerequisites
+## 🚀 Quick Start
 
-- Python 3.10 or later
-- Node.js 18 or later and npm
-- Git
+### Prerequisites
+- **Docker** 20.10+ and **Docker Compose** 2.0+
+- **Git**
 
----
-
-## 6. Backend Setup
+### Run Everything
 
 ```bash
-# 1. Navigate to the backend directory
-cd backend
+# Clone the repository
+git clone <repo-url>
+cd DESD-Genius
 
-# 2. Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+# Start all services
+docker-compose up -d
 
-# 3. Install dependencies
-pip install django djangorestframework djangorestframework-simplejwt django-cors-headers python-dotenv
+# Apply migrations
+docker-compose exec backend python manage.py migrate
 
-# 4. Apply database migrations
-python manage.py migrate
-
-# 5. (Optional) Create a superuser for the Django admin
-python manage.py createsuperuser
-
-# 6. Start the development server
-python manage.py runserver
+# Create a superuser (optional, for Django admin)
+docker-compose exec backend python manage.py createsuperuser
 ```
 
-The backend will be available at `http://localhost:8000`.
+**Access the app:**
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+- Django Admin: `http://localhost:8000/admin/`
+- Database: PostgreSQL on `localhost:5432`
 
 ---
 
-## 7. Frontend Setup
-
-```bash
-# 1. Navigate to the frontend directory
-cd frontend
-
-# 2. Install dependencies
-npm install
-
-# 3. Create a local environment file
-echo "VITE_API_URL=http://localhost:8000" > .env
-```
-
----
-
-## 8. Running the Application
-
-Run both servers simultaneously in separate terminals.
-
-**Terminal 1 — backend:**
-```bash
-cd backend
-source venv/bin/activate
-python manage.py runserver
-```
-
-**Terminal 2 — frontend:**
-```bash
-cd frontend
-npm run dev
-```
-
-The frontend dev server starts on `http://localhost:5173` (or the next available port if 5173 is occupied).
-
----
-
-## 9. Environment Variables
-
-### Frontend (`.env` in `frontend/`)
-
-| Variable | Description | Default |
-|---|---|---|
-| `VITE_API_URL` | Base URL of the Django backend | `http://localhost:8000` |
-
-### Backend
-
-The backend reads a `DJANGO_SECRET_KEY` environment variable if present. For development, a fallback insecure key is used automatically — this must not be used in production.
-
----
-
-## 10. API Reference
-
-All endpoints are prefixed with the backend base URL. JWT access tokens must be included in the `Authorization` header as `Bearer <token>` for protected routes.
+## 📖 API Reference
 
 ### Authentication
+```bash
+# Register
+POST /accounts/register/
+{ "email": "user@example.com", "password": "secure_password", "role": "customer" }
 
-| Method | Endpoint | Description | Auth required |
-|---|---|---|---|
-| POST | `/accounts/token/` | Obtain access + refresh token pair | No |
-| POST | `/accounts/token/refresh/` | Refresh access token | No |
-| POST | `/accounts/token/blacklist/` | Invalidate refresh token (logout) | No |
+# Login
+POST /accounts/token/
+{ "username": "user@example.com", "password": "secure_password" }
+# Returns: { "access": "token", "refresh": "token" }
 
-### Accounts
+# Refresh token
+POST /accounts/token/refresh/
+{ "refresh": "token" }
 
-| Method | Endpoint | Description | Roles |
-|---|---|---|---|
-| POST | `/accounts/register/` | Register a new user | No |
-| GET | `/accounts/user/me/` | Get own user profile | Any |
-| PATCH | `/accounts/user/me/` | Update own name or password | Any |
-| GET | `/accounts/producer/me/` | Get own producer profile | Producer |
-| PATCH | `/accounts/producer/me/` | Update store name, description, contact | Producer |
-| GET | `/accounts/producers/` | List all producers | Any |
-| GET | `/accounts/producers/<id>/` | Get a single producer | Any |
+# Logout
+POST /accounts/token/blacklist/
+{ "refresh": "token" }
+```
 
 ### Products
+```bash
+# List products (role-filtered)
+GET /api/products/?category=fruits&organic=true&search=apple
 
-| Method | Endpoint | Description | Roles |
-|---|---|---|---|
-| GET | `/api/products/categories/` | List all categories | Any |
-| GET | `/api/products/` | List products (filtered by role) | Any |
-| POST | `/api/products/` | Create a product | Producer |
-| GET | `/api/products/<id>/` | Get product detail | Any / Owner |
-| PATCH | `/api/products/<id>/inventory/` | Update stock, availability, season dates | Producer (owner) |
+# Get product details (includes reviews)
+GET /api/products/{id}/
 
-Producers see their own unavailable products in the listing; public users only see products that are available, in stock, and within their season window.
+# Create product (producer only)
+POST /api/products/
+{
+  "name": "Organic Apples",
+  "price": "3.50",
+  "stock_quantity": 100,
+  "producer": 1,
+  "category": 2
+}
+
+# Update inventory (producer only)
+PATCH /api/products/{id}/inventory/
+{ "stock_quantity": 80, "is_available": true }
+```
 
 ### Cart
+```bash
+# View cart
+GET /api/cart/
 
-| Method | Endpoint | Description | Roles |
-|---|---|---|---|
-| GET | `/api/cart/` | View cart contents | Customer |
-| POST | `/api/cart/items/` | Add item to cart | Customer |
-| PATCH | `/api/cart/items/<id>/` | Update item quantity | Customer |
-| DELETE | `/api/cart/items/<id>/` | Remove item from cart | Customer |
-| DELETE | `/api/cart/` | Clear entire cart | Customer |
+# Add item
+POST /api/cart/items/
+{ "product_id": 1, "quantity": 3 }
+
+# Update quantity
+PATCH /api/cart/items/{id}/
+{ "quantity": 5 }
+
+# Remove item
+DELETE /api/cart/items/{id}/
+
+# Clear cart
+DELETE /api/cart/
+```
 
 ### Orders
+```bash
+# Create order from cart
+POST /api/orders/checkout/
+{
+  "delivery_address": "123 Main St, Bristol",
+  "producer_delivery_dates": { "1": "2026-05-15", "2": "2026-05-16" }
+}
 
-| Method | Endpoint | Description | Roles |
-|---|---|---|---|
-| POST | `/api/orders/checkout/` | Create order from cart | Customer |
-| GET | `/api/orders/` | List own orders | Customer |
-| GET | `/api/orders/<order_number>/` | Get order detail | Customer / Producer |
-| POST | `/api/orders/<order_number>/reorder/` | Add previous order items to cart | Customer |
-| GET | `/api/orders/producer/` | List sub-orders assigned to producer | Producer |
-| PATCH | `/api/orders/producer/<id>/status/` | Update sub-order status | Producer |
+# List customer orders
+GET /api/orders/
+
+# Get order details
+GET /api/orders/{order_number}/
+
+# Reorder from history
+POST /api/orders/{order_number}/reorder/
+
+# Producer: List incoming sub-orders
+GET /api/orders/producer/
+
+# Producer: Update sub-order status
+PATCH /api/orders/producer/{id}/status/
+{ "status": "ready", "note": "Ready for pickup" }
+```
+
+### AI & Recommendations
+```bash
+# Get personalized recommendations
+GET /api/ai/recommendations/
+# Returns: { "recommendations": [...], "surplus_deals": [...], "quick_reorder": [...] }
+
+# Get product quality assessment
+GET /api/ai/quality/{product_id}/
+
+# Quality history (producer)
+GET /api/ai/quality/history/
+
+# Get XAI explanation for assessment
+GET /api/ai/quality/{assessment_id}/explanation/
+
+# Admin insights
+GET /api/ai/admin/insights/
+
+# Producer insights
+GET /api/ai/producer/insights/
+```
+
+### Reviews
+```bash
+# Get product reviews with stats
+GET /api/reviews/product/{product_id}/
+# Returns: { "average_rating": 4.5, "total_reviews": 12, "rating_distribution": {...}, "reviews": [...] }
+
+# Submit review (verified purchase only)
+POST /api/reviews/reviews/
+{
+  "product": 1,
+  "producer_order_id": 5,
+  "rating": 5,
+  "title": "Excellent quality!",
+  "comment": "Fresh and delicious."
+}
+
+# Get my reviews
+GET /api/reviews/my-reviews/
+
+# Mark review as helpful
+POST /api/reviews/reviews/{id}/mark-helpful/
+```
+
+### Discounts & Coupons
+```bash
+# List active coupons
+GET /api/discounts/coupons/
+
+# Validate coupon
+POST /api/discounts/coupons/validate/
+{ "code": "SAVE10" }
+
+# Apply coupon (get discount)
+POST /api/discounts/coupons/apply/
+{
+  "code": "SAVE10",
+  "subtotal": 50.00
+}
+# Returns: { "coupon_code": "SAVE10", "discount_amount": 5.00, "final_total": 45.00 }
+
+# Coupon usage history
+GET /api/discounts/coupons/my-history/
+
+# Product discounts (auto-applied)
+GET /api/discounts/product-discounts/active/
+```
 
 ---
 
-## 11. Authentication
+## 🔐 Authentication Details
 
-The system uses stateless JWT authentication with a short-lived access token and a longer-lived refresh token:
+**Access Token Lifetime:** 60 minutes  
+**Refresh Token Lifetime:** 7 days
 
-- **Access token lifetime:** 60 minutes
-- **Refresh token lifetime:** 7 days
+The frontend automatically:
+1. Stores tokens in `localStorage`
+2. Attaches access token to all requests: `Authorization: Bearer <token>`
+3. Detects 401 responses and refreshes the token
+4. Retries the original request with new token
+5. Redirects to login if refresh fails
 
-The frontend Axios instance (`src/api.ts`) intercepts 401 responses, attempts a token refresh automatically, and retries the original request. If the refresh fails the user is redirected to the login page.
-
-The `USERNAME_FIELD` on the custom user model is set to `email`, so all logins are email-based. Passwords are validated against Django's built-in validators (minimum length, common password list, numeric-only check).
+Login uses **email as username**. All user emails are lowercase and unique.
 
 ---
 
-## 12. Running Tests
+## 🧪 Testing
 
-The backend test suite covers authentication, product browsing rules, cart operations, and order creation and status transitions. All 37 tests pass on a clean database.
+Run the test suite:
 
 ```bash
-cd backend
-python manage.py test
+# Backend tests
+docker-compose exec backend python manage.py test
+
+# Coverage report
+docker-compose exec backend coverage run --source='.' manage.py test
+docker-compose exec backend coverage report
 ```
 
-Coverage areas:
-
-- **Accounts** — registration, login, role assignment, producer profile access control
-- **Products** — public visibility rules (availability, stock, season window), category and search filters, organic filter, producer-only create and inventory update, validation of negative stock and invalid season ranges
-- **Cart** — add, update, remove, clear, per-customer data isolation
-- **Orders** — checkout splits order by producer, stock decrements on placement, commission calculation, status lifecycle transitions, reorder behaviour, minimum order value enforcement
+**Test coverage includes:**
+- ✅ User authentication (JWT, token refresh)
+- ✅ Role-based access control
+- ✅ Product visibility rules (stock, season, organic)
+- ✅ Cart operations (add, update, remove)
+- ✅ Order creation and splitting by producer
+- ✅ Order status transitions
+- ✅ Stock decrements on checkout
+- ✅ Review creation (delivered orders only)
+- ✅ Coupon validation and discount calculations
+- ✅ AI recommendations and quality assessments
 
 ---
 
-## 13. Data Model Summary
+## 📊 Database Schema
 
+### Key Models
+
+**User (accounts.User)**
 ```
-User (accounts.User)
-│  email (unique, login field)
-│  role: customer | producer | admin
-│  minimum_order_value
-│
-├── Producer (accounts.Producer)
-│      store_name, description, contact_info
-│
-├── Cart (cart.Cart)               [customer only, one per user]
-│   └── CartItem
-│          product (FK), quantity
-│
-├── Order (orders.Order)           [created at checkout]
-│   │  order_number, total_amount, commission_amount
-│   │  delivery_address, status
-│   │
-│   └── ProducerOrder              [one per producer within the order]
-│       │  subtotal, producer_payout, delivery_date, status, notes
-│       └── ProducerOrderItem
-│              product (FK), quantity, unit_price
-│
-Product (products.Product)
-│  name, description, price, unit, image_url
-│  stock_quantity, low_stock_threshold, is_available
-│  available_from, available_to, harvest_date
-│  organic_certified, allergens
-│  producer (FK → User), category (FK → Category)
-│
-Category (products.Category)
-       name
+- email (unique, login field)
+- role: customer | producer | admin
+- minimum_order_value (for producers)
+- is_active, created_at, updated_at
 ```
 
-### Order status lifecycle
-
-Each `ProducerOrder` follows this transition graph, enforced by the backend:
-
+**Product (products.Product)**
 ```
-pending ──► confirmed ──► ready ──► delivered
-   └──────────────────► cancelled
+- name, description, price, unit
+- image_url, image (file upload)
+- stock_quantity, low_stock_threshold
+- is_available, available_from, available_to
+- harvest_date, farm_origin, food_miles
+- organic_certified, allergens, storage_tips
+- producer (FK), category (FK)
 ```
 
-Transitions outside this graph are rejected with a 400 response.
+**Order (orders.Order)**
+```
+- order_number (unique)
+- customer (FK)
+- total_amount, commission_amount
+- delivery_address, status
+- created_at, updated_at
+```
+
+**ProducerOrder (orders.ProducerOrder)** → One per producer in order
+```
+- order (FK), producer (FK)
+- subtotal, producer_payout
+- delivery_date, status, notes
+```
+
+**Review (reviews.Review)**
+```
+- product (FK), customer (FK), producer_order (FK)
+- rating (1-5), title, comment
+- is_verified_purchase, helpful_count
+- unique_together: [product, customer]
+```
+
+**Coupon (discounts.Coupon)**
+```
+- code (unique), description
+- discount_type: percentage | fixed
+- discount_value, maximum_discount
+- minimum_order_value
+- max_uses, max_uses_per_user
+- is_active, valid_from, valid_until
+```
+
+**QualityAssessment (ai_service.QualityAssessment)**
+```
+- product (FK), producer (FK)
+- colour_score, size_score, ripeness_score
+- overall_grade (A/B/C), confidence
+- discount_percentage, auto_discount_applied
+- is_mock (boolean), model_version
+```
 
 ---
 
-## 14. Known Limitations
+## 🚨 Important Notes
 
-**Database:** SQLite is used for development convenience. A production deployment would require replacing this with a server-grade database such as PostgreSQL.
+### Development vs Production
 
-**Media storage:** Product images are stored as URLs only. There is no file upload endpoint; producers must host images externally and provide a direct URL when creating a product.
+**Development (Docker Compose):**
+- ✅ SQLite in-memory database (reset on restart)
+- ✅ `DEBUG = True`
+- ✅ `CORS_ALLOW_ALL_ORIGINS = True`
+- ✅ AI runs in mock mode (no TensorFlow required)
 
-**Payment integration:** The checkout endpoint creates an order and returns `payment_status: "pending"`. No payment gateway is connected. A `PaymentService` call is marked as a TODO in `orders/views.py`.
+**Production Deployment:**
+- ⚠️ Replace SQLite with PostgreSQL
+- ⚠️ Set `DEBUG = False`
+- ⚠️ Configure specific `CORS_ALLOWED_ORIGINS`
+- ⚠️ Use environment variables for secrets
+- ⚠️ Enable HTTPS, CSRF protection
+- ⚠️ Set up real payment gateway integration
 
-**Email activation:** New user accounts are created with `is_active = False`. No activation email is sent in the current implementation; accounts must be activated via the Django admin panel or a direct database update.
+### Known Limitations
 
-**CORS policy:** `CORS_ALLOW_ALL_ORIGINS = True` is set in `settings.py` for development. This must be changed to an explicit allowlist before any public-facing deployment.
+1. **Email activation** — New accounts need manual admin activation or database update
+2. **Payment integration** — Checkout creates orders but doesn't process payments
+3. **Media storage** — Images stored as external URLs only (no file upload)
+4. **Email notifications** — Order updates don't trigger emails (TODO)
+5. **Real-time updates** — WebSocket notifications not implemented
 
-**Frontend product data:** The marketplace browse page (`Home.tsx`) uses a static dataset defined in `src/data/fakeProducts.ts` for UI development and demonstration purposes. Wiring this page to the live `/api/products/` endpoint is the intended next step.
+---
+
+## 📝 License
+
+This project is built for the Bristol Regional Food Network initiative.
+
+---
+
+## 👥 Support & Contributing
+
+For issues, questions, or contributions, please open an issue on GitHub or contact the development team.
+
+**Last Updated:** May 2026  
+**Status:** ✅ Production-ready with experimental AI features

@@ -51,7 +51,7 @@ class Product(models.Model):
     storage_tips = models.TextField(blank=True)
     recipe_idea = models.TextField(blank=True)
     organic_certified = models.BooleanField(default=False)
-    harvest_date = models.DateField()
+    harvest_date = models.DateField(default=timezone.localdate)
     farm_origin = models.CharField(max_length=255, blank=True, default="", help_text="e.g. 'Bristol, UK'")
     food_miles = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True, help_text="Estimated food miles for this product")
 
@@ -118,3 +118,12 @@ class Product(models.Model):
 
     def is_orderable(self) -> bool:
         return self.is_available and self.stock_quantity > 0 and self.is_in_season
+    
+    def save(self, *args, **kwargs):
+        if self.category_id is None:
+            default_category, created = Category.objects.get_or_create(
+                name="Uncategorised"
+            )
+            self.category = default_category
+
+        super().save(*args, **kwargs)
