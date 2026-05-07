@@ -1,3 +1,5 @@
+import os
+import stripe
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -103,13 +105,33 @@ class CheckoutView(APIView):
 
         delivery_address = serializer.validated_data["delivery_address"]
         producer_delivery_dates = serializer.validated_data["producer_delivery_dates"]
+        payment_intent_id = serializer.validated_data["payment_intent_id"]
 
+        # ── Step 1: Verify the Stripe payment before touching the database ────
+        # We ask Stripe directly whether this PaymentIntent succeeded.
+        # This prevents anyone from faking a payment by sending a made-up ID.
+        stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+        try:
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        except stripe.error.StripeError as e:
+            return Response(
+                {"error": f"Could not verify payment with Stripe: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if intent.status != "succeeded":
+            return Response(
+                {"error": f"Payment not confirmed. Stripe status: {intent.status}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Step 2: Payment verified — create the order ───────────────────────
         try:
             order = OrderService.create_order_from_cart(
                 request.user, delivery_address, producer_delivery_dates
             )
 
-            # DONE: Call PaymentService.initiate_payment(order) here
+            # Record the payment and settlements in our own database
             payment_result = PaymentService.initiate_payment(order)
 
             order_serializer = OrderDetailSerializer(order)
@@ -117,7 +139,7 @@ class CheckoutView(APIView):
             response_data.update(
                 {
                     "payment_status": payment_result["status"],
-                    "payment_message": "Payment processed in mock/test mode.",
+                    "payment_message": "Payment processed via Stripe.",
                     "payment": payment_result,
                 }
             )

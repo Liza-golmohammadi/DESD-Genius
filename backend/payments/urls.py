@@ -7,9 +7,13 @@ from .views import (
     SettlementDetailView,
     SettlementStatusUpdateView,
     SettlementReportView,
+    CreatePaymentIntentView,
 )
 
 urlpatterns = [
+    # Stripe: create a PaymentIntent before the user enters card details
+    path("create-intent/", CreatePaymentIntentView.as_view(), name="create_payment_intent"),
+
     # Reporting first
     path("reports/settlements/", SettlementReportView.as_view(), name="settlement_report"),
 

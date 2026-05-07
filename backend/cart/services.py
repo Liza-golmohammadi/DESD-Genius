@@ -2,6 +2,7 @@ from .models import Cart, CartItem
 from products.models import Product
 from decimal import Decimal
 from django.db import transaction
+from .food_miles import calculate_food_miles
 
 class CartService:
 
@@ -86,12 +87,16 @@ class CartService:
         food_miles_total = Decimal('0.00')
         item_count = 0
 
-        item_count = 0
+        # Get the customer's postcode for dynamic food miles calculation
+        customer_postcode = getattr(user, 'postcode', None)
+
+        # Cache postcode-based distances per producer so we don't call the API repeatedly
+        producer_distances = {}
 
         for item in items:
             producer = item.product.producer
             p_id = producer.id
-            
+
             if p_id not in producers_dict:
                 producers_dict[p_id] = {
                     'producer_id': p_id,
@@ -99,7 +104,7 @@ class CartService:
                     'items': [],
                     'producer_subtotal': Decimal('0.00'),
                 }
-            
+
             line_total = item.line_total
             producers_dict[p_id]['items'].append({
                 'product_id': item.product.id,
@@ -108,14 +113,22 @@ class CartService:
                 'unit_price': item.product.price,
                 'line_total': line_total,
             })
-            
+
             producers_dict[p_id]['producer_subtotal'] += line_total
             grand_total += line_total
             item_count += item.quantity
 
-            # Accumulate food miles
-            if item.product.food_miles:
-                food_miles_total += item.product.food_miles * item.quantity
+            # Food miles is the distance from producer to customer — fixed per producer,
+            # not per item. We calculate and add it only the first time we see this producer.
+            if p_id not in producer_distances:
+                producer_postcode = getattr(producer, 'postcode', None)
+                dynamic = calculate_food_miles(customer_postcode, producer_postcode)
+                producer_distances[p_id] = dynamic
+
+                if dynamic is not None:
+                    food_miles_total += dynamic
+                elif item.product.food_miles:
+                    food_miles_total += item.product.food_miles
 
         # Create sorted list of producers by producer_id
         producers_list = [producers_dict[pid] for pid in sorted(producers_dict.keys())]

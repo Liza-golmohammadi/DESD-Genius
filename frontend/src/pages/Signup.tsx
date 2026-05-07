@@ -10,12 +10,15 @@ interface SignupFormData {
   first_name: string;
   last_name: string;
   accepted_terms: boolean;
+  phone_number: string;
   customer_role: string;
   organisation_name: string;
   postcode: string;
+  delivery_address: string;
   store_name: string;
   store_description: string;
   store_contact: string;
+  store_address: string;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -42,12 +45,15 @@ const Signup = () => {
     first_name: "",
     last_name: "",
     accepted_terms: false,
+    phone_number: "",
     customer_role: "individual",
     organisation_name: "",
     postcode: "",
+    delivery_address: "",
     store_name: "",
     store_description: "",
     store_contact: "",
+    store_address: "",
   });
 
   if (user) return <Navigate to="/" replace />;
@@ -77,10 +83,12 @@ const Signup = () => {
           password: formData.password,
           first_name: formData.first_name,
           last_name: formData.last_name,
+          phone_number: formData.phone_number,
           accepted_terms: formData.accepted_terms,
           store_name: formData.store_name,
           store_description: formData.store_description,
           store_contact: formData.store_contact,
+          store_address: formData.store_address,
         });
       } else {
         await registerCustomer({
@@ -88,10 +96,12 @@ const Signup = () => {
           password: formData.password,
           first_name: formData.first_name,
           last_name: formData.last_name,
+          phone_number: formData.phone_number,
           accepted_terms: formData.accepted_terms,
           customer_role: formData.customer_role,
           organisation_name: formData.organisation_name,
           postcode: formData.postcode,
+          delivery_address: formData.delivery_address,
         });
       }
     } catch (err: unknown) {
@@ -221,6 +231,7 @@ const Signup = () => {
               value={formData.first_name}
               onChange={handleChange}
               placeholder="First name"
+              required
               style={inputStyle}
             />
             <input
@@ -229,6 +240,7 @@ const Signup = () => {
               value={formData.last_name}
               onChange={handleChange}
               placeholder="Last name"
+              required
               style={inputStyle}
             />
           </div>
@@ -254,16 +266,39 @@ const Signup = () => {
             style={inputStyle}
           />
 
+          {/* Phone Number (Common) */}
+          <input
+            name="phone_number"
+            type="text"
+            value={formData.phone_number}
+            onChange={handleChange}
+            placeholder="Phone number"
+            required
+            style={inputStyle}
+          />
+
           {/* Customer fields */}
           {!isProducer && (
-            <input
-              name="postcode"
-              type="text"
-              value={formData.postcode}
-              onChange={handleChange}
-              placeholder="Postcode (e.g. BS1 4DJ)"
-              style={inputStyle}
-            />
+            <>
+              <input
+                name="delivery_address"
+                type="text"
+                value={formData.delivery_address}
+                onChange={handleChange}
+                placeholder="Delivery address"
+                required
+                style={inputStyle}
+              />
+              <input
+                name="postcode"
+                type="text"
+                value={formData.postcode}
+                onChange={handleChange}
+                placeholder="Postcode (e.g. BS1 4DJ)"
+                required
+                style={inputStyle}
+              />
+            </>
           )}
 
           {!isProducer && (
@@ -292,6 +327,7 @@ const Signup = () => {
                   ? "Organisation / Institution name"
                   : "Restaurant name"
               }
+              required
               style={inputStyle}
             />
           )}
@@ -314,6 +350,7 @@ const Signup = () => {
                 onChange={handleChange}
                 placeholder="Store description — tell customers what makes your store unique."
                 rows={4}
+                required
                 style={{ ...inputStyle, resize: "vertical" }}
               />
               <input
@@ -322,6 +359,16 @@ const Signup = () => {
                 value={formData.store_contact}
                 onChange={handleChange}
                 placeholder="Store contact (phone or email)"
+                required
+                style={inputStyle}
+              />
+              <input
+                name="store_address"
+                type="text"
+                value={formData.store_address}
+                onChange={handleChange}
+                placeholder="Store address"
+                required
                 style={inputStyle}
               />
             </>
