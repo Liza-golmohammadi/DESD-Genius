@@ -118,20 +118,17 @@ class CartService:
             grand_total += line_total
             item_count += item.quantity
 
-            # Dynamically calculate food miles from customer to producer postcode.
-            # If either postcode is missing or the API fails, fall back to the stored value.
+            # Food miles is the distance from producer to customer — fixed per producer,
+            # not per item. We calculate and add it only the first time we see this producer.
             if p_id not in producer_distances:
                 producer_postcode = getattr(producer, 'postcode', None)
                 dynamic = calculate_food_miles(customer_postcode, producer_postcode)
-                producer_distances[p_id] = dynamic  # May be None if calculation failed
+                producer_distances[p_id] = dynamic
 
-            distance = producer_distances[p_id]
-            if distance is not None:
-                # Use the real calculated distance
-                food_miles_total += distance * item.quantity
-            elif item.product.food_miles:
-                # Fall back to the stored estimate on the product
-                food_miles_total += item.product.food_miles * item.quantity
+                if dynamic is not None:
+                    food_miles_total += dynamic
+                elif item.product.food_miles:
+                    food_miles_total += item.product.food_miles
 
         # Create sorted list of producers by producer_id
         producers_list = [producers_dict[pid] for pid in sorted(producers_dict.keys())]
