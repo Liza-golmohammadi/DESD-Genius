@@ -70,44 +70,85 @@ const BulkOrder = () => {
   };
 
   const handleAddToCart = async (product: Product) => {
-    const qty = quantities[product.id] || 0;
-    if (qty <= 0) return;
+  const qty = quantities[product.id] || 0;
+  if (qty <= 0) return;
 
-    setAddingToCart((prev) => ({ ...prev, [product.id]: true }));
+  setError("");
+  setSuccessMsg("");
+  setAddingToCart((prev) => ({ ...prev, [product.id]: true }));
+
+  try {
+    await api.post("/api/cart/items/", {
+      product_id: product.id,
+      quantity: qty,
+    });
+
+    setSuccessMsg(`Added ${qty}× ${product.name} to cart`);
+    setQuantities((prev) => ({ ...prev, [product.id]: 0 }));
+    setTimeout(() => setSuccessMsg(""), 3000);
+  } catch (err: any) {
+    console.error("Bulk add single product failed:", err);
+    setError(err?.response?.data?.error || "Failed to add to cart.");
+    setTimeout(() => setError(""), 5000);
+  } finally {
+    setAddingToCart((prev) => ({ ...prev, [product.id]: false }));
+  }
+};
+  const handleAddAll = async () => {
+  const itemsToAdd = Object.entries(quantities).filter(([, qty]) => qty > 0);
+  if (itemsToAdd.length === 0) return;
+
+  setError("");
+  setSuccessMsg("");
+
+  const added: string[] = [];
+  const failed: string[] = [];
+
+  for (const [idStr, qty] of itemsToAdd) {
+    const productId = Number(idStr);
+    const product = products.find((p) => p.id === productId);
+
     try {
-      await api.post("/api/cart/add/", {
-        product_id: product.id,
+      await api.post("/api/cart/items/", {
+        product_id: productId,
         quantity: qty,
       });
-      setSuccessMsg(`Added ${qty}× ${product.name} to cart`);
-      setQuantities((prev) => ({ ...prev, [product.id]: 0 }));
-      setTimeout(() => setSuccessMsg(""), 3000);
+
+      added.push(product?.name || `Product ${productId}`);
     } catch (err: any) {
-      setError(err?.response?.data?.error || "Failed to add to cart.");
-      setTimeout(() => setError(""), 4000);
-    } finally {
-      setAddingToCart((prev) => ({ ...prev, [product.id]: false }));
+      console.error("Bulk add failed:", productId, err);
+      failed.push(
+        `${product?.name || `Product ${productId}`}: ${
+          err?.response?.data?.error || "Failed to add"
+        }`
+      );
     }
-  };
+  }
 
-  const handleAddAll = async () => {
-    const itemsToAdd = Object.entries(quantities).filter(([, qty]) => qty > 0);
-    if (itemsToAdd.length === 0) return;
+  if (added.length > 0) {
+    setSuccessMsg(`Added ${added.length} item(s) to cart.`);
+  }
 
-    for (const [idStr, qty] of itemsToAdd) {
-      try {
-        await api.post("/api/cart/add/", {
-          product_id: Number(idStr),
-          quantity: qty,
-        });
-      } catch {
-        // continue adding others
+  if (failed.length > 0) {
+    setError(`Some items failed: ${failed.join(" | ")}`);
+  }
+
+  // Only clear quantities for products that were successfully added.
+  setQuantities((prev) => {
+    const updated = { ...prev };
+    for (const [idStr] of itemsToAdd) {
+      const productId = Number(idStr);
+      const product = products.find((p) => p.id === productId);
+      if (product && added.includes(product.name)) {
+        updated[productId] = 0;
       }
     }
-    setSuccessMsg(`Added ${itemsToAdd.length} item(s) to cart!`);
-    setQuantities({});
-    setTimeout(() => setSuccessMsg(""), 3000);
-  };
+    return updated;
+  });
+
+  setTimeout(() => setSuccessMsg(""), 3000);
+  setTimeout(() => setError(""), 8000);
+};
 
   const totalSelected = Object.values(quantities).filter((q) => q > 0).length;
 
