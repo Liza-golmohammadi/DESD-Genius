@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Payment, Settlement, PAYMENT_STATUS_CHOICES, SETTLEMENT_STATUS_CHOICES
+from .models import Payment, Settlement, WeeklySettlementCycle, PAYMENT_STATUS_CHOICES, SETTLEMENT_STATUS_CHOICES
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -66,3 +66,32 @@ class SettlementReportSerializer(serializers.Serializer):
     total_commission = serializers.DecimalField(max_digits=12, decimal_places=2)
     total_payout = serializers.DecimalField(max_digits=12, decimal_places=2)
     settlement_count = serializers.IntegerField()
+
+
+class WeeklySettlementCycleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WeeklySettlementCycle
+        fields = [
+            "id",
+            "week_start",
+            "week_end",
+            "status",
+            "total_amount",
+            "total_commission",
+            "total_payout",
+            "num_settlements",
+            "created_at",
+            "processed_at",
+        ]
+        read_only_fields = fields
+
+
+class ProducerSettlementSummarySerializer(serializers.Serializer):
+    total_settlements = serializers.IntegerField()
+    total_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_commission = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_payout = serializers.DecimalField(max_digits=12, decimal_places=2)
+    pending_count = serializers.IntegerField()
+    paid_count = serializers.IntegerField()
+    pending_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    paid_amount = serializers.DecimalField(max_digits=12, decimal_places=2)

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils import timezone
-from .models import Payment, Settlement
+from .models import Payment, Settlement, WeeklySettlementCycle
 
 
 @admin.register(Payment)
@@ -54,3 +54,35 @@ class SettlementAdmin(admin.ModelAdmin):
         self.message_user(request, f"{updated} settlement(s) marked as PAID.")
 
     mark_as_paid.short_description = "Mark selected settlements as PAID"
+
+
+@admin.register(WeeklySettlementCycle)
+class WeeklySettlementCycleAdmin(admin.ModelAdmin):
+    list_display = (
+        "week_start",
+        "week_end",
+        "status",
+        "num_settlements",
+        "total_payout",
+        "processed_at",
+    )
+    list_filter = ("status", "week_start", "processed_at")
+    search_fields = ("week_start",)
+    readonly_fields = ("created_at", "processed_at", "total_amount", "total_commission", "total_payout", "num_settlements")
+
+    fieldsets = (
+        ("Week Information", {
+            "fields": ("week_start", "week_end"),
+        }),
+        ("Status", {
+            "fields": ("status",),
+        }),
+        ("Totals", {
+            "fields": ("total_amount", "total_commission", "total_payout", "num_settlements"),
+            "classes": ("collapse",),
+        }),
+        ("Timestamps", {
+            "fields": ("created_at", "processed_at"),
+            "classes": ("collapse",),
+        }),
+    )

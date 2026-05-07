@@ -322,3 +322,145 @@ class CreatePaymentIntentView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+# ============================================================================
+# PRODUCER SETTLEMENT VIEWS - TC-012 Weekly Payment Settlements
+# ============================================================================
+
+from django.http import FileResponse
+from .settlement_service import SettlementService
+from .serializers import (
+    WeeklySettlementCycleSerializer,
+    ProducerSettlementSummarySerializer,
+)
+
+
+class ProducerSettlementListView(APIView):
+    """Get producer's settlements with optional year/month filtering"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not is_producer(request.user):
+            return Response(
+                {"error": "Only producers can view settlements."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        year = request.query_params.get("year")
+        month = request.query_params.get("month")
+
+        settlements = SettlementService.get_producer_settlements(
+            request.user,
+            year=int(year) if year else None,
+            month=int(month) if month else None,
+        )
+
+        serializer = SettlementSerializer(settlements, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ProducerSettlementSummaryView(APIView):
+    """Get producer's settlement summary (totals, pending, paid)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not is_producer(request.user):
+            return Response(
+                {"error": "Only producers can view settlements."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        summary = SettlementService.get_producer_settlement_summary(request.user)
+        serializer = ProducerSettlementSummarySerializer(summary)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ProducerSettlementReportDownloadView(APIView):
+    """Download settlement report as CSV or PDF"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not is_producer(request.user):
+            return Response(
+                {"error": "Only producers can download reports."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        format_type = request.query_params.get("format", "csv")  # csv or pdf
+        year = request.query_params.get("year")
+        month = request.query_params.get("month")
+
+        if format_type == "pdf":
+            # Generate PDF
+            pdf_buffer = SettlementService.generate_settlement_pdf(
+                request.user,
+                year=int(year) if year else None,
+                month=int(month) if month else None,
+            )
+            return FileResponse(
+                pdf_buffer,
+                as_attachment=True,
+                filename=f"settlement_report_{timezone.now().strftime('%Y-%m-%d')}.pdf",
+                content_type="application/pdf",
+            )
+        else:
+            # Generate CSV
+            csv_content = SettlementService.generate_settlement_csv(
+                request.user,
+                year=int(year) if year else None,
+                month=int(month) if month else None,
+            )
+            return FileResponse(
+                csv_content.encode(),
+                as_attachment=True,
+                filename=f"settlement_report_{timezone.now().strftime('%Y-%m-%d')}.csv",
+                content_type="text/csv",
+            )
+
+
+class WeeklySettlementCycleListView(APIView):
+    """Get all settlement cycles (admin only)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if not is_admin(request.user):
+            return Response(
+                {"error": "Only admins can view settlement cycles."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        from .models import WeeklySettlementCycle
+
+        cycles = WeeklySettlementCycle.objects.all()
+        serializer = WeeklySettlementCycleSerializer(cycles, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class SettlementMarkAsPaidView(APIView):
+    """Mark settlements as paid after bank transfer (admin only)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if not is_admin(request.user):
+            return Response(
+                {"error": "Only admins can mark settlements as paid."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        settlement_ids = request.data.get("settlement_ids", [])
+        if not settlement_ids:
+            return Response(
+                {"error": "settlement_ids required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        count = SettlementService.mark_settlements_as_paid(settlement_ids)
+        return Response(
+            {
+                "status": "success",
+                "count": count,
+                "message": f"Marked {count} settlements as paid",
+            },
+            status=status.HTTP_200_OK,
+        )

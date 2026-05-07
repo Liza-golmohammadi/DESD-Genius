@@ -46,6 +46,39 @@ class Payment(models.Model):
         return f"Payment | {self.order.order_number} | {self.status}"
 
 
+class WeeklySettlementCycle(models.Model):
+    """
+    Tracks weekly settlement cycles - one per week
+    Automatically created every Sunday at midnight
+    """
+    week_start = models.DateField(unique=True, db_index=True)
+    week_end = models.DateField()
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("PENDING", "Pending"),
+            ("PROCESSING", "Processing"),
+            ("COMPLETED", "Completed"),
+            ("FAILED", "Failed"),
+        ],
+        default="PENDING",
+    )
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_commission = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_payout = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    num_settlements = models.IntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-week_start"]
+        indexes = [models.Index(fields=["-week_start"])]
+
+    def __str__(self):
+        return f"Settlement Cycle: {self.week_start} to {self.week_end} ({self.status})"
+
+
 class Settlement(models.Model):
     """
     Producer-level payout tracking (THIS IS THE KEY MODEL 🔥)
@@ -68,6 +101,14 @@ class Settlement(models.Model):
         related_name="settlement",
     )
 
+    settlement_cycle = models.ForeignKey(
+        WeeklySettlementCycle,
+        on_delete=models.PROTECT,
+        related_name="settlements",
+        null=True,
+        blank=True,
+    )
+
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
     commission_amount = models.DecimalField(max_digits=12, decimal_places=2)
     payout_amount = models.DecimalField(max_digits=12, decimal_places=2)
@@ -83,6 +124,11 @@ class Settlement(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        unique_together = [["producer_order", "settlement_cycle"]]
+        indexes = [
+            models.Index(fields=["producer", "-created_at"]),
+            models.Index(fields=["status", "-created_at"]),
+        ]
 
     def __str__(self):
         return (
