@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'payments',
     'ai_service',
     'reviews',
+    'discounts',
     'notifications.apps.NotificationsConfig',
 ]
 
