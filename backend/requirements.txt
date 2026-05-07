@@ -11,8 +11,7 @@ Pillow
 stripe
 
 # AI/ML dependencies — Advanced AI module (UFCFUR-15-3)
-tensorflow==2.15.0
-keras==2.15.0
+tensorflow==2.19.0
 opencv-python
 numpy
 scikit-learn

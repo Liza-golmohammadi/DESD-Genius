@@ -125,10 +125,11 @@ const CheckoutForm = ({ clientSecret }: { clientSecret: string }) => {
         // Load cart and user profile in parallel
         const [cartRes, profileRes] = await Promise.all([
           api.get<CartSummary>("/api/cart/"),
-          api.get<{ first_name: string; last_name: string; address: string; postcode: string; delivery_address: string; phone_number?: string }>("/api/auth/me/"),
+          api.get<{ first_name: string; last_name: string; address: string; postcode: string; delivery_address: string; phone_number?: string }>("/accounts/auth/me/"),
         ]);
 
         const data = cartRes.data;
+        console.log("Cart response:", cartRes.data);
         setCartSummary(data);
 
         // Pre-fill delivery fields from the customer's saved profile
@@ -255,6 +256,7 @@ const CheckoutForm = ({ clientSecret }: { clientSecret: string }) => {
           },
         }
       );
+      console.log("Payment intent created");
 
       if (stripeError) {
         // Stripe declined the card or something went wrong on their end
