@@ -1,7 +1,10 @@
 from django.db import transaction
 from django.utils import timezone
 from datetime import datetime, timedelta
-from .models import Order, ProducerOrder, ProducerOrderItem
+from .models import (
+    Order, ProducerOrder, ProducerOrderItem,
+    RecurringOrder, RecurringOrderItem,
+)
 from cart.services import CartService
 from products.models import Product
 from django.contrib.auth import get_user_model
@@ -84,6 +87,11 @@ class OrderService:
         min_delivery_time = now + timedelta(hours=48)
         min_delivery_date = min_delivery_time.date()
 
+        # Determine order type based on customer role
+        is_community = getattr(user, 'customer_role', None) == 'community_group'
+        order_type = 'bulk' if is_community else 'standard'
+        organisation_name = getattr(user, 'organisation_name', '') or '' if is_community else ''
+
         # Validate delivery dates and producer minimum order values.
         for p_group in summary["producers"]:
             p_id = p_group["producer_id"]
@@ -124,6 +132,8 @@ class OrderService:
             total_amount=total_amount,
             delivery_address=delivery_address,
             status="pending",
+            order_type=order_type,
+            organisation_name=organisation_name,
         )
 
         # Create one producer sub-order per producer group.
@@ -250,3 +260,135 @@ class OrderService:
                     )
 
         return result
+
+
+# ── Recurring Order Service (Restaurant Feature) ─────────────────────────────
+
+class RecurringOrderService:
+
+    FREQUENCY_DELTAS = {
+        'weekly': timedelta(weeks=1),
+        'fortnightly': timedelta(weeks=2),
+        'monthly': timedelta(days=30),
+    }
+
+    @staticmethod
+    @transaction.atomic
+    def create_from_order(user, order_number, name, frequency, next_delivery_date,
+                          end_date=None, delivery_address=""):
+        """Create a RecurringOrder from a past order."""
+        if user.role != "customer":
+            raise PermissionError("Only customers can create recurring orders.")
+
+        customer_role = getattr(user, 'customer_role', None)
+        if customer_role != 'restaurant':
+            raise PermissionError("Only restaurant customers can create recurring orders.")
+
+        try:
+            order = Order.objects.get(order_number=order_number, customer=user)
+        except Order.DoesNotExist:
+            raise ValueError(f"Order {order_number} not found.")
+
+        # Use the order's delivery address if none provided
+        if not delivery_address:
+            delivery_address = order.delivery_address
+
+        recurring = RecurringOrder.objects.create(
+            customer=user,
+            source_order=order,
+            name=name or f"Recurring from {order_number}",
+            frequency=frequency,
+            delivery_address=delivery_address,
+            next_delivery_date=next_delivery_date,
+            end_date=end_date,
+            status='active',
+        )
+
+        # Copy all items from the source order's producer sub-orders
+        for p_order in order.producer_orders.prefetch_related('items__product').all():
+            for item in p_order.items.all():
+                RecurringOrderItem.objects.create(
+                    recurring_order=recurring,
+                    product=item.product,
+                    quantity=item.quantity,
+                    unit_price=item.unit_price,
+                )
+
+        return recurring
+
+    @staticmethod
+    @transaction.atomic
+    def place_now(user, recurring_order_id):
+        """
+        Manually place an order from a recurring schedule.
+        Adds all items to cart, then the user can proceed to checkout.
+        """
+        try:
+            recurring = RecurringOrder.objects.prefetch_related('items__product').get(
+                id=recurring_order_id,
+                customer=user,
+            )
+        except RecurringOrder.DoesNotExist:
+            raise ValueError("Recurring order not found.")
+
+        if recurring.status != 'active':
+            raise ValueError("This recurring order is not active.")
+
+        result = {"added": [], "unavailable": []}
+
+        for item in recurring.items.all():
+            product = item.product
+            if product.is_orderable() and product.stock_quantity >= item.quantity:
+                CartService.add_item(user, product.id, item.quantity)
+                result["added"].append({
+                    "product_id": product.id,
+                    "product_name": product.name,
+                    "quantity": item.quantity,
+                })
+            else:
+                reason = "out_of_stock" if product.stock_quantity <= 0 else "insufficient_stock"
+                result["unavailable"].append({
+                    "product_id": product.id,
+                    "product_name": product.name,
+                    "reason": reason,
+                })
+
+        # Advance schedule
+        recurring.times_placed += 1
+        recurring.last_placed_at = timezone.now()
+        delta = RecurringOrderService.FREQUENCY_DELTAS.get(recurring.frequency, timedelta(weeks=1))
+        recurring.next_delivery_date = recurring.next_delivery_date + delta
+
+        # Auto-cancel if past end date
+        if recurring.end_date and recurring.next_delivery_date > recurring.end_date:
+            recurring.status = 'cancelled'
+
+        recurring.save()
+
+        return result
+
+    @staticmethod
+    def update_schedule(user, recurring_order_id, **kwargs):
+        """Update fields on a recurring schedule."""
+        try:
+            recurring = RecurringOrder.objects.get(
+                id=recurring_order_id,
+                customer=user,
+            )
+        except RecurringOrder.DoesNotExist:
+            raise ValueError("Recurring order not found.")
+
+        allowed_fields = {'name', 'frequency', 'next_delivery_date', 'end_date', 'status', 'delivery_address'}
+        for field, value in kwargs.items():
+            if field in allowed_fields and value is not None:
+                setattr(recurring, field, value)
+
+        recurring.save()
+        return recurring
+
+    @staticmethod
+    def get_customer_recurring_orders(user):
+        """Get all recurring orders for a customer."""
+        return RecurringOrder.objects.filter(
+            customer=user,
+        ).prefetch_related('items__product').order_by('-created_at')

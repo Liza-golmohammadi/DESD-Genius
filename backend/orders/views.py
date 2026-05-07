@@ -6,13 +6,16 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 
-from .services import OrderService
+from .services import OrderService, RecurringOrderService
 from .serializers import (
     OrderDetailSerializer,
     OrderListSerializer,
     CheckoutInputSerializer,
     ProducerOrderSerializer,
     StatusUpdateSerializer,
+    RecurringOrderSerializer,
+    RecurringOrderCreateSerializer,
+    RecurringOrderUpdateSerializer,
 )
 from .models import Order, ProducerOrder
 from payments.services import PaymentService
@@ -298,8 +301,104 @@ class AdminOrdersView(APIView):
                 "commission_amount": str(order.commission_amount),
                 "status": order.status,
                 "status_display": order.get_status_display(),
+                "order_type": order.order_type,
+                "organisation_name": order.organisation_name,
                 "item_count": item_count,
                 "created_at": order.created_at.isoformat(),
             })
  
         return Response(data)
+
+
+# ── Recurring Order Views (Restaurant Feature) ───────────────────────────────
+
+class RecurringOrderListCreateView(APIView):
+    """
+    GET  — list all recurring orders for the current restaurant customer.
+    POST — create a new recurring order from a past order.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != "customer":
+            return Response(
+                {"error": "Only customers can view recurring orders."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        schedules = RecurringOrderService.get_customer_recurring_orders(request.user)
+        return Response(RecurringOrderSerializer(schedules, many=True).data)
+
+    def post(self, request):
+        serializer = RecurringOrderCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            recurring = RecurringOrderService.create_from_order(
+                user=request.user,
+                order_number=serializer.validated_data["source_order_number"],
+                name=serializer.validated_data.get("name", ""),
+                frequency=serializer.validated_data["frequency"],
+                next_delivery_date=serializer.validated_data["next_delivery_date"],
+                end_date=serializer.validated_data.get("end_date"),
+                delivery_address=serializer.validated_data.get("delivery_address", ""),
+            )
+            return Response(
+                RecurringOrderSerializer(recurring).data,
+                status=status.HTTP_201_CREATED,
+            )
+        except PermissionError as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RecurringOrderDetailView(APIView):
+    """
+    GET   — get a single recurring order.
+    PATCH — update frequency, status, dates, etc.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, recurring_id):
+        from .models import RecurringOrder
+        try:
+            recurring = RecurringOrder.objects.prefetch_related('items__product').get(
+                id=recurring_id,
+                customer=request.user,
+            )
+        except RecurringOrder.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(RecurringOrderSerializer(recurring).data)
+
+    def patch(self, request, recurring_id):
+        serializer = RecurringOrderUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            recurring = RecurringOrderService.update_schedule(
+                user=request.user,
+                recurring_order_id=recurring_id,
+                **serializer.validated_data,
+            )
+            return Response(RecurringOrderSerializer(recurring).data)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RecurringOrderPlaceNowView(APIView):
+    """POST — manually trigger a recurring order (adds items to cart)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, recurring_id):
+        try:
+            result = RecurringOrderService.place_now(
+                user=request.user,
+                recurring_order_id=recurring_id,
+            )
+            return Response(result, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -29,6 +29,8 @@ import ProductDetail from "./pages/ProductDetail";
 import RescueMarket from "./pages/RescueMarket";
 import ResolutionCenter from "./pages/ResolutionCenter";
 import CommunityHub from "./pages/CommunityHub";
+import BulkOrder from "./pages/BulkOrder";
+import RecurringOrders from "./pages/RecurringOrders";
 import NotificationBell from "./components/NotificationBell";
 
 function Logout() {
@@ -51,6 +53,8 @@ function Layout() {
 
   const isAuthed = !!localStorage.getItem("access");
   const isProducer = !!user?.producer_profile;
+  const isCommunityGroup = user?.customer_role === "community_group";
+  const isRestaurant = user?.customer_role === "restaurant";
 
   // Close menu on route change
   useEffect(() => {
@@ -81,6 +85,8 @@ function Layout() {
       {isAuthed && isProducer && <NavLink to="/producer/dashboard" style={pill}>Dashboard</NavLink>}
       {isAuthed && !isProducer && <NavLink to="/orders" style={pill}>Orders</NavLink>}
       {isAuthed && user?.role === "admin" && <NavLink to="/admin" style={pill}>Admin</NavLink>}
+      {isAuthed && isCommunityGroup && <NavLink to="/bulk-order" style={pill}>Bulk Order</NavLink>}
+      {isAuthed && isRestaurant && <NavLink to="/recurring-orders" style={pill}>Recurring</NavLink>}
       <NavLink to="/rescue-market" style={pill}>Rescue</NavLink>
       <NavLink to="/sustainability" style={pill}>Sustainability</NavLink>
       <NavLink to="/community" style={pill}>Community</NavLink>
@@ -426,6 +432,8 @@ function App() {
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/:orderNumber" element={<OrderDetail />} />
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/bulk-order" element={<BulkOrder />} />
+          <Route path="/recurring-orders" element={<RecurringOrders />} />
         </Route>
 
         {/* Admin only routes */}
