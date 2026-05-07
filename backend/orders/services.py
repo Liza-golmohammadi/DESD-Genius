@@ -95,10 +95,16 @@ class OrderService:
         # Validate delivery dates and producer minimum order values.
         for p_group in summary["producers"]:
             p_id = p_group["producer_id"]
-            delivery_date = OrderService._get_delivery_date(producer_delivery_dates, p_id)
+            delivery_date_raw = OrderService._get_delivery_date(producer_delivery_dates, p_id)
 
-            if delivery_date is None:
+            if delivery_date_raw is None:
                 raise ValueError(f"Missing delivery date for producer {p_id}")
+
+            # Parse delivery date if it comes as a string from the frontend API
+            if isinstance(delivery_date_raw, str):
+                delivery_date = datetime.strptime(delivery_date_raw, "%Y-%m-%d").date()
+            else:
+                delivery_date = delivery_date_raw
 
             if delivery_date < min_delivery_date:
                 raise ValueError(
@@ -141,7 +147,13 @@ class OrderService:
             subtotal = p_group["producer_subtotal"]
             p_id = p_group["producer_id"]
             producer = User.objects.get(id=p_id)
-            delivery_date = OrderService._get_delivery_date(producer_delivery_dates, p_id)
+            delivery_date_raw = OrderService._get_delivery_date(producer_delivery_dates, p_id)
+
+            # Parse delivery date if it comes as a string from the frontend API
+            if isinstance(delivery_date_raw, str):
+                delivery_date = datetime.strptime(delivery_date_raw, "%Y-%m-%d").date()
+            else:
+                delivery_date = delivery_date_raw
 
             p_order = ProducerOrder.objects.create(
                 order=order,
