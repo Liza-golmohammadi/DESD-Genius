@@ -1,5 +1,9 @@
 from rest_framework import serializers
-from .models import Order, ProducerOrder, ProducerOrderItem, ORDER_STATUS_CHOICES
+from .models import (
+    Order, ProducerOrder, ProducerOrderItem, ORDER_STATUS_CHOICES,
+    RecurringOrder, RecurringOrderItem,
+    RECURRING_FREQUENCY_CHOICES, RECURRING_STATUS_CHOICES,
+)
 
 
 class ProducerOrderItemSerializer(serializers.ModelSerializer):
@@ -79,6 +83,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
             "delivery_address",
             "status",
             "status_display",
+            "order_type",
+            "organisation_name",
             "created_at",
             "producer_orders",
             "producer_count",
@@ -100,6 +106,8 @@ class OrderListSerializer(serializers.ModelSerializer):
             "total_amount",
             "status",
             "status_display",
+            "order_type",
+            "organisation_name",
             "created_at",
             "producer_count",
         ]
@@ -125,3 +133,71 @@ class CheckoutInputSerializer(serializers.Serializer):
 class StatusUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=ORDER_STATUS_CHOICES, required=True)
     note = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+# ── Recurring Order Serializers ──────────────────────────────────────────────
+
+class RecurringOrderItemSerializer(serializers.ModelSerializer):
+    product_id = serializers.ReadOnlyField(source="product.id")
+    product_name = serializers.ReadOnlyField(source="product.name")
+    line_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RecurringOrderItem
+        fields = ["id", "product_id", "product_name", "quantity", "unit_price", "line_total"]
+        read_only_fields = fields
+
+    def get_line_total(self, obj):
+        return str(obj.line_total)
+
+
+class RecurringOrderSerializer(serializers.ModelSerializer):
+    items = RecurringOrderItemSerializer(many=True, read_only=True)
+    frequency_display = serializers.CharField(source="get_frequency_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    source_order_number = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RecurringOrder
+        fields = [
+            "id",
+            "name",
+            "frequency",
+            "frequency_display",
+            "delivery_address",
+            "next_delivery_date",
+            "end_date",
+            "status",
+            "status_display",
+            "times_placed",
+            "last_placed_at",
+            "source_order_number",
+            "created_at",
+            "items",
+        ]
+        read_only_fields = fields
+
+    def get_source_order_number(self, obj):
+        if obj.source_order:
+            return obj.source_order.order_number
+        return None
+
+
+class RecurringOrderCreateSerializer(serializers.Serializer):
+    """Create a recurring schedule from an existing order."""
+    source_order_number = serializers.CharField(required=True)
+    name = serializers.CharField(required=False, allow_blank=True, default="")
+    frequency = serializers.ChoiceField(choices=RECURRING_FREQUENCY_CHOICES, required=True)
+    next_delivery_date = serializers.DateField(required=True)
+    end_date = serializers.DateField(required=False, allow_null=True, default=None)
+    delivery_address = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class RecurringOrderUpdateSerializer(serializers.Serializer):
+    """Update a recurring schedule (frequency, status, dates)."""
+    name = serializers.CharField(required=False, allow_blank=True)
+    frequency = serializers.ChoiceField(choices=RECURRING_FREQUENCY_CHOICES, required=False)
+    next_delivery_date = serializers.DateField(required=False)
+    end_date = serializers.DateField(required=False, allow_null=True)
+    status = serializers.ChoiceField(choices=RECURRING_STATUS_CHOICES, required=False)
+    delivery_address = serializers.CharField(required=False, allow_blank=True)

@@ -67,6 +67,13 @@ class User(AbstractUser):
 	default=None
 	)
 
+	organisation_name = models.CharField(
+		max_length=255,
+		blank=True,
+		default="",
+		help_text="Organisation/institution name (for community groups and restaurants)."
+	)
+
 	accepted_terms_at = models.DateTimeField(null=True, blank=True)
 	objects = CustomUserManager()
 
