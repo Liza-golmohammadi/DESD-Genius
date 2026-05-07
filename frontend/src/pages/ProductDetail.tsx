@@ -8,6 +8,7 @@ import {
   BookOpen, ChefHat, Info, ShieldAlert,
 } from "lucide-react";
 import api from "../api";
+import ReviewsSection from "../components/ReviewsSection";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Product = {
@@ -343,6 +344,9 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* Reviews Section */}
+      <ReviewsSection productId={product.id} userId={user?.id} />
     </motion.div>
   );
 }

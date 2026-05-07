@@ -25,7 +25,14 @@
       "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f''''{len\\(data\\)} products''''\\); [print\\(f''''  {p[\"\"name\"\"]}: allergens={p.get\\(\"\"allergens\"\",\"\"none\"\"\\)}''''\\) for p in data[:5]]\")",
       "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f''''{len\\(data\\)} products''''\\); [print\\(f''''  {p[\"\"name\"\"]}: producer={p.get\\(\"\"producer\"\",\"\"?\"\"\\)}''''\\) for p in data[:5]]\")",
       "Bash(git checkout *)",
-      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius branch --show-current)"
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius branch --show-current)",
+      "Bash(git -C /c/Users/damzy/OneDrive/Documents/DESD-Genius checkout -b Revision-1 0b48e27)",
+      "Bash(grep -n \"api.get.*recommendations\" C:\\\\\\\\Users\\\\\\\\damzy\\\\\\\\OneDrive\\\\\\\\Documents\\\\\\\\DESD-Genius\\\\\\\\frontend\\\\\\\\src\\\\\\\\pages\\\\\\\\RescueMarket.tsx)",
+      "Bash(docker-compose ps *)",
+      "Bash(cat)",
+      "Bash(docker-compose exec *)",
+      "Bash(docker-compose logs *)",
+      "Read(//c/c/Users/damzy/OneDrive/Documents/DESD-Genius/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\damzy\\OneDrive\\Documents\\DESD-Genius\\backend\\ai_service"
