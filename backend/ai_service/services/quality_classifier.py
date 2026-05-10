@@ -154,67 +154,101 @@ class QualityClassifierService:
         return _MODEL_CACHE[path]
 
     @classmethod
+    def _preprocess_image_role1(cls, image_path_or_url):
+        """
+        Preprocess image for Role 1 MobileNetV2 model.
+
+        CRITICAL: This must match the training preprocessing exactly.
+        See PREPROCESSING_SPEC_ROLE_1_MODEL_CRITICAL.md for details.
+
+        Steps:
+        1. Load image and convert to RGB
+        2. Resize to 224×224 with BILINEAR interpolation
+        3. Convert to float32 array [0, 255]
+        4. Apply MobileNetV2 preprocessing (normalizes to [-1, 1])
+        5. Add batch dimension → (1, 224, 224, 3)
+        """
+        import io
+        import urllib.request
+        from PIL import Image
+        import numpy as np
+        from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+
+        tmp_path = None
+        try:
+            # Step 0: Download URL to temp file if needed
+            if isinstance(image_path_or_url, str) and image_path_or_url.startswith(("http://", "https://")):
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+                    tmp_path = f.name
+                urllib.request.urlretrieve(image_path_or_url, tmp_path)
+                image_path = tmp_path
+            else:
+                image_path = image_path_or_url
+
+            # Step 1: Load image and convert to RGB
+            image = Image.open(image_path).convert('RGB')
+
+            # Step 2: Resize to 224×224 with BILINEAR (NOT LANCZOS, NOT NEAREST)
+            image = image.resize((224, 224), Image.BILINEAR)
+
+            # Step 3: Convert to float32 array [0, 255]
+            image_array = np.array(image, dtype=np.float32)
+
+            # Step 4: Apply MobileNetV2 preprocessing (normalizes to [-1, 1])
+            preprocessed = preprocess_input(image_array)
+
+            # Step 5: Add batch dimension
+            batch = np.expand_dims(preprocessed, axis=0)
+
+            return batch
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    @classmethod
     def _infer_from_image(cls, image_path_or_url, model_path, version):
         """
         Run real CNN inference on an image URL or local path.
 
-        Downloads the image if it is a URL, preprocesses it for
-        MobileNetV2 (224×224, scaled to [-1, 1]), runs prediction,
-        and maps the healthy-probability output to attribute scores.
+        Uses the exact preprocessing pipeline from Role 1 training.
+        See PREPROCESSING_SPEC_ROLE_1_MODEL_CRITICAL.md.
 
         Returns a dict in the same shape as classify_from_scores plus
         mode='live' and model_version.
         """
         import numpy as np
         import tensorflow as tf
-        import tempfile
-        import urllib.request
 
         model = cls._load_keras_model(model_path)
 
-        # Fetch image to a local temp file if it is a URL.
-        tmp_path = None
-        if image_path_or_url.startswith("http"):
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
-                tmp_path = f.name
-            urllib.request.urlretrieve(image_path_or_url, tmp_path)
-            local_path = tmp_path
+        # Preprocess image using Role 1 exact spec
+        batch = cls._preprocess_image_role1(image_path_or_url)
+
+        # Run inference
+        preds = model.predict(batch, verbose=0)
+
+        # Extract the sigmoid probability (model outputs [0] = rotten probability)
+        rotten_probability = float(preds[0][0])
+
+        # Map to attribute scores based on freshness
+        if rotten_probability >= 0.5:
+            # Rotten produce
+            colour = 65.0
+            size = 70.0
+            ripeness = 60.0
+            confidence = rotten_probability
         else:
-            local_path = image_path_or_url
+            # Healthy produce
+            colour = 88.0
+            size = 91.0
+            ripeness = 83.0
+            confidence = 1.0 - rotten_probability
 
-        try:
-            img = tf.keras.utils.load_img(local_path, target_size=(224, 224))
-            img_array = tf.keras.utils.img_to_array(img)
-            img_array = np.expand_dims(img_array, 0)
-            img_array = tf.keras.applications.mobilenet_v2.preprocess_input(img_array)
-
-            preds = model.predict(img_array, verbose=0)
-
-            # Determine healthy probability from different output shapes.
-            if preds.shape[-1] == 1:
-                # Single sigmoid — convention: high value = rotten.
-                healthy_prob = float(1.0 - preds[0][0])
-            elif preds.shape[-1] == 2:
-                # Two-class softmax — [healthy, rotten].
-                healthy_prob = float(preds[0][0])
-            else:
-                # Multi-class (e.g. per-produce fresh/rotten pairs).
-                # Even indices = healthy classes; take the max.
-                healthy_prob = float(np.max(preds[0][::2]))
-
-            confidence = max(healthy_prob, 1.0 - healthy_prob)
-            base = healthy_prob * 100.0
-            colour = max(0.0, min(100.0, base + random.gauss(0, 3)))
-            size = max(0.0, min(100.0, base + random.gauss(0, 4)))
-            ripeness = max(0.0, min(100.0, base + random.gauss(0, 3)))
-
-            result = cls.classify_from_scores(colour, size, ripeness, confidence)
-            result["mode"] = "live"
-            result["model_version"] = version
-            return result
-        finally:
-            if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+        result = cls.classify_from_scores(colour, size, ripeness, confidence)
+        result["mode"] = "live"
+        result["model_version"] = version
+        return result
 
     @classmethod
     def classify_image(cls, image_path_or_url):
