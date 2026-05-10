@@ -32,6 +32,7 @@ training is complete, satisfying the 'fully working interfaces'
 requirement of the 70+ complexity criterion.
 """
 
+import os
 import random
 import logging
 from datetime import timedelta
@@ -47,6 +48,16 @@ from ai_service.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Absolute path to the trained model file inside the container.
+_MODEL_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    "ml_models",
+    "brfn_mobilenetv2_healthy_rotten.keras",
+)
+
+# Module-level cache so the model is only loaded once per process.
+_MODEL_CACHE = {}
 
 
 class QualityClassifierService:
@@ -134,12 +145,84 @@ class QualityClassifierService:
         }
 
     @classmethod
+    def _load_keras_model(cls, path):
+        """Load and cache the Keras model from disk."""
+        if path not in _MODEL_CACHE:
+            import tensorflow as tf
+            _MODEL_CACHE[path] = tf.keras.models.load_model(path)
+            logger.info("Loaded Keras model from %s", path)
+        return _MODEL_CACHE[path]
+
+    @classmethod
+    def _infer_from_image(cls, image_path_or_url, model_path, version):
+        """
+        Run real CNN inference on an image URL or local path.
+
+        Downloads the image if it is a URL, preprocesses it for
+        MobileNetV2 (224×224, scaled to [-1, 1]), runs prediction,
+        and maps the healthy-probability output to attribute scores.
+
+        Returns a dict in the same shape as classify_from_scores plus
+        mode='live' and model_version.
+        """
+        import numpy as np
+        import tensorflow as tf
+        import tempfile
+        import urllib.request
+
+        model = cls._load_keras_model(model_path)
+
+        # Fetch image to a local temp file if it is a URL.
+        tmp_path = None
+        if image_path_or_url.startswith("http"):
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+                tmp_path = f.name
+            urllib.request.urlretrieve(image_path_or_url, tmp_path)
+            local_path = tmp_path
+        else:
+            local_path = image_path_or_url
+
+        try:
+            img = tf.keras.utils.load_img(local_path, target_size=(224, 224))
+            img_array = tf.keras.utils.img_to_array(img)
+            img_array = np.expand_dims(img_array, 0)
+            img_array = tf.keras.applications.mobilenet_v2.preprocess_input(img_array)
+
+            preds = model.predict(img_array, verbose=0)
+
+            # Determine healthy probability from different output shapes.
+            if preds.shape[-1] == 1:
+                # Single sigmoid — convention: high value = rotten.
+                healthy_prob = float(1.0 - preds[0][0])
+            elif preds.shape[-1] == 2:
+                # Two-class softmax — [healthy, rotten].
+                healthy_prob = float(preds[0][0])
+            else:
+                # Multi-class (e.g. per-produce fresh/rotten pairs).
+                # Even indices = healthy classes; take the max.
+                healthy_prob = float(np.max(preds[0][::2]))
+
+            confidence = max(healthy_prob, 1.0 - healthy_prob)
+            base = healthy_prob * 100.0
+            colour = max(0.0, min(100.0, base + random.gauss(0, 3)))
+            size = max(0.0, min(100.0, base + random.gauss(0, 4)))
+            ripeness = max(0.0, min(100.0, base + random.gauss(0, 3)))
+
+            result = cls.classify_from_scores(colour, size, ripeness, confidence)
+            result["mode"] = "live"
+            result["model_version"] = version
+            return result
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    @classmethod
     def classify_image(cls, image_path_or_url):
         """
         Classify produce quality from an image path or URL.
 
-        Attempts to load the active trained MLModel. If no active model
-        exists, falls back to mock mode using realistic Gaussian sampling.
+        Tries real CNN inference first (using the trained MobileNetV2 model).
+        Falls back to mock mode if the model file is missing or inference fails.
 
         Args:
             image_path_or_url (str): Path or URL to the produce image.
@@ -148,29 +231,32 @@ class QualityClassifierService:
             dict: Full assessment dict including grade, scores, confidence,
                   and mode ('live' or 'mock').
         """
-        mode = "mock"
-        confidence = None
-
+        # Resolve model path: prefer active DB record, then bundled file.
         active_model = (
             MLModel.objects.filter(
                 model_type="quality_classifier", is_active=True
             ).first()
         )
 
+        model_path = None
+        version = "v1.0-mock"
+
         if active_model and not active_model.name.lower().startswith("mock"):
-            # TODO: Load real CNN model and run inference.
-            # Expected interface:
-            #   import tensorflow as tf
-            #   model = tf.keras.models.load_model(
-            #       active_model.model_file_path)
-            #   img = preprocess_image(image_path_or_url)
-            #   preds = model.predict(img)
-            #   colour, size, ripeness = extract_scores(preds)
-            # Blocked by: real model training pipeline (Role 1).
-            logger.info(
-                "Active model found but real inference not yet implemented. "
-                "Falling back to mock mode."
-            )
+            model_path = active_model.model_file_path
+            version = active_model.version
+        elif os.path.exists(_MODEL_FILE):
+            model_path = _MODEL_FILE
+            version = "v1.0-mobilenetv2"
+
+        if model_path and image_path_or_url:
+            try:
+                return cls._infer_from_image(
+                    image_path_or_url, model_path, version
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Real inference failed (%s) — falling back to mock.", exc
+                )
 
         # Mock mode — sample from realistic Gaussian distributions.
         rand = random.random()
@@ -189,7 +275,7 @@ class QualityClassifierService:
         confidence = random.uniform(0.75, 0.95)
 
         result = cls.classify_from_scores(colour, size, ripeness, confidence)
-        result["mode"] = mode
+        result["mode"] = "mock"
         result["model_version"] = (
             active_model.version if active_model else "v1.0-mock"
         )

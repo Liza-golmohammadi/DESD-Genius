@@ -22,9 +22,6 @@ services:
       # Stripe test-mode keys — used by the backend to process payments
       - STRIPE_SECRET_KEY=sk_test_51TUCDRHSmtwzhAJs4zk3WU2txJbpxUxYBUMnIUf8mZAagt8jCCV7tdrMLY69ndZnIhIXhzz98HrLsgTR0SM0qOhN00m9k5SyDE
       - STRIPE_PUBLISHABLE_KEY=pk_test_51TUCDRHSmtwzhAJskhfgOciUJcMWKdxYDqCMp3lmSK1mHNgDTub6lYK8HbPkykCRaHFF8uogugrtyZ40eU9uI4Ux00uY8vGWhp
-      # Celery configuration for task queue and scheduling
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
@@ -39,56 +36,9 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://127.0.0.1:8000
     depends_on:
       - backend
-
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-
-  celery_worker:
-    build: ./backend
-    container_name: celery_worker
-    command: celery -A backend worker -l info
-    volumes:
-      - ./backend:/app
-    environment:
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-      - DJANGO_SETTINGS_MODULE=backend.settings
-      - DB_NAME=mydatabase
-      - DB_USER=mydatabaseuser
-      - DB_PASSWORD=mypassword
-      - DB_HOST=db
-      - DB_PORT=5432
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    depends_on:
-      - db
-      - redis
-
-  celery_beat:
-    build: ./backend
-    container_name: celery_beat
-    command: celery -A backend beat -l info
-    volumes:
-      - ./backend:/app
-    environment:
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-      - DJANGO_SETTINGS_MODULE=backend.settings
-      - DB_NAME=mydatabase
-      - DB_USER=mydatabaseuser
-      - DB_PASSWORD=mypassword
-      - DB_HOST=db
-      - DB_PORT=5432
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    depends_on:
-      - db
-      - redis
 
   db:
     image: postgres:16-alpine
