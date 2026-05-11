@@ -232,30 +232,57 @@ class QualityClassifierService:
         rotten_probability = float(preds[0][0])
 
         # Map binary CNN output to business A/B/C grading.
-        # Model output is rotten probability.
-        # C = predicted rotten.
-        # A = predicted healthy with high confidence.
-        # B = predicted healthy but borderline / lower confidence.
+        # IMPORTANT:
+        # The CNN only predicts rotten_probability.
+        # It does NOT directly predict A/B/C, colour, size, or ripeness.
+        #
+        # For demo/business use, Grade B is treated as a wider
+        # uncertainty/borderline band around the decision boundary.
+        #
+        # A = confidently healthy
+        # B = borderline / uncertain quality
+        # C = confidently rotten / not suitable for sale
         healthy_confidence = 1.0 - rotten_probability
+        model_confidence = max(rotten_probability, healthy_confidence)
 
-        if rotten_probability >= 0.5:
-            colour = 62.0
-            size = 67.0
-            ripeness = 58.0
-            confidence = rotten_probability
-        elif healthy_confidence >= 0.80:
+        # DEBUG: log the raw sigmoid output so we can verify thresholds.
+        logger.info(
+            "GRADE DEBUG — rotten_probability=%.4f model_confidence=%.4f",
+            rotten_probability, model_confidence,
+        )
+
+        if rotten_probability <= 0.15:
+            # Confident healthy -> passes Grade A thresholds.
             colour = 88.0
             size = 91.0
             ripeness = 83.0
-            confidence = healthy_confidence
+            confidence = model_confidence
+            predicted_label = "healthy"
+            quality_interpretation = "confident_healthy"
+        elif rotten_probability >= 0.85:
+            # Confident rotten -> falls below Grade B thresholds.
+            colour = 62.0
+            size = 67.0
+            ripeness = 58.0
+            confidence = model_confidence
+            predicted_label = "rotten"
+            quality_interpretation = "confident_rotten"
         else:
+            # Borderline zone (0.15 < p < 0.85) -> Grade B.
+            # Covers visible imperfections (e.g. spotted bananas) that
+            # are still saleable at a discount rather than rejected.
             colour = 77.0
             size = 82.0
             ripeness = 73.0
-            confidence = healthy_confidence
+            confidence = model_confidence
+            predicted_label = "borderline"
+            quality_interpretation = "borderline_uncertain"
 
         result = cls.classify_from_scores(colour, size, ripeness, confidence)
         result["rotten_probability"] = round(rotten_probability, 4)
+        result["predicted_label"] = predicted_label
+        result["quality_interpretation"] = quality_interpretation
+        result["score_source"] = "derived_from_rotten_probability_confidence_band"
         result["mode"] = "live"
         result["model_version"] = version
         return result
@@ -381,11 +408,11 @@ class QualityClassifierService:
         grade = classification["grade"]
 
         # Apply discount/action rules based on grade.
-        # Grade C is not suitable for sale, so it should not be discounted.
-        # Instead, the producer should take action manually.
+        # Grade C produce gets a deep discount to clear stock and reduce waste,
+        # rather than being silently removed — matches case study guidance.
         if grade == "C":
-            discount = 0.0
-            auto_discount = False
+            discount = GRADE_C_DISCOUNT
+            auto_discount = True
         elif grade == "B":
             discount = GRADE_B_DISCOUNT
             auto_discount = True
