@@ -20,14 +20,10 @@ class Category(models.Model):
 
 class ProductQuerySet(models.QuerySet):
     def visible_to_customers(self):
-        today = timezone.localdate()
-        return (
-            self.filter(is_available=True, stock_quantity__gt=0)
-            .filter(
-                models.Q(available_from__isnull=True) | models.Q(available_from__lte=today),
-                models.Q(available_to__isnull=True) | models.Q(available_to__gte=today),
-            )
-        )
+        # AI DEMO MODE:
+        # Ignore seasonal date windows so manually added demo products
+        # always appear in the marketplace if available and in stock.
+        return self.filter(is_available=True, stock_quantity__gt=0)
 
 
 class Product(models.Model):
@@ -105,11 +101,8 @@ class Product(models.Model):
 
     @property
     def is_in_season(self) -> bool:
-        today = timezone.localdate()
-        if self.available_from and today < self.available_from:
-            return False
-        if self.available_to and today > self.available_to:
-            return False
+        # AI DEMO MODE:
+        # Season is ignored so demo products are always treated as in season.
         return True
 
     @property

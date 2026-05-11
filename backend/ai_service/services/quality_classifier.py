@@ -231,21 +231,31 @@ class QualityClassifierService:
         # Extract the sigmoid probability (model outputs [0] = rotten probability)
         rotten_probability = float(preds[0][0])
 
-        # Map to attribute scores based on freshness
+        # Map binary CNN output to business A/B/C grading.
+        # Model output is rotten probability.
+        # C = predicted rotten.
+        # A = predicted healthy with high confidence.
+        # B = predicted healthy but borderline / lower confidence.
+        healthy_confidence = 1.0 - rotten_probability
+
         if rotten_probability >= 0.5:
-            # Rotten produce
-            colour = 65.0
-            size = 70.0
-            ripeness = 60.0
+            colour = 62.0
+            size = 67.0
+            ripeness = 58.0
             confidence = rotten_probability
-        else:
-            # Healthy produce
+        elif healthy_confidence >= 0.80:
             colour = 88.0
             size = 91.0
             ripeness = 83.0
-            confidence = 1.0 - rotten_probability
+            confidence = healthy_confidence
+        else:
+            colour = 77.0
+            size = 82.0
+            ripeness = 73.0
+            confidence = healthy_confidence
 
         result = cls.classify_from_scores(colour, size, ripeness, confidence)
+        result["rotten_probability"] = round(rotten_probability, 4)
         result["mode"] = "live"
         result["model_version"] = version
         return result
@@ -276,9 +286,12 @@ class QualityClassifierService:
         version = "v1.0-mock"
 
         if active_model and not active_model.name.lower().startswith("mock"):
-            model_path = active_model.model_file_path
-            version = active_model.version
-        elif os.path.exists(_MODEL_FILE):
+            candidate_path = active_model.model_file_path
+            if candidate_path and os.path.exists(candidate_path):
+                model_path = candidate_path
+                version = active_model.version
+
+        if not model_path and os.path.exists(_MODEL_FILE):
             model_path = _MODEL_FILE
             version = "v1.0-mobilenetv2"
 
@@ -351,13 +364,28 @@ class QualityClassifierService:
                 "You can only assess quality for your own products."
             )
 
-        classification = cls.classify_image(image_url or "")
+        # Use explicit image_url if frontend sends one.
+        # Otherwise use the product's stored local image path or image_url.
+        image_source = image_url or ""
+
+        if not image_source and getattr(product, "image", None):
+            try:
+                image_source = product.image.path
+            except Exception:
+                image_source = ""
+
+        if not image_source and getattr(product, "image_url", ""):
+            image_source = product.image_url
+
+        classification = cls.classify_image(image_source or "")
         grade = classification["grade"]
 
-        # Apply discount rules based on grade.
+        # Apply discount/action rules based on grade.
+        # Grade C is not suitable for sale, so it should not be discounted.
+        # Instead, the producer should take action manually.
         if grade == "C":
-            discount = GRADE_C_DISCOUNT
-            auto_discount = True
+            discount = 0.0
+            auto_discount = False
         elif grade == "B":
             discount = GRADE_B_DISCOUNT
             auto_discount = True
@@ -365,16 +393,19 @@ class QualityClassifierService:
             discount = 0.0
             auto_discount = False
 
-        # Attempt Grad-CAM generation if image provided.
+        # Attempt XAI heatmap generation if an image was available.
         grad_cam_url = ""
-        if image_url:
-            from ai_service.services.xai_service import XAIService
-            grad_cam_url = XAIService.generate_grad_cam(image_url)
+        if image_source:
+            try:
+                from ai_service.services.xai_service import XAIService
+                grad_cam_url = XAIService.generate_grad_cam(image_source)
+            except Exception:
+                grad_cam_url = ""
 
         assessment = QualityAssessment.objects.create(
             product=product,
             producer=producer_user,
-            image_url=image_url or "",
+            image_url=image_source or "",
             colour_score=classification["colour_score"],
             size_score=classification["size_score"],
             ripeness_score=classification["ripeness_score"],

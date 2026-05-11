@@ -38,8 +38,9 @@ GRADE_B_THRESHOLDS = {"colour": 75.0, "size": 80.0, "ripeness": 70.0}
 GRADE_C_THRESHOLDS = {"colour": 65.0, "size": 70.0, "ripeness": 60.0}
 
 # Discount rates applied automatically by grade (business rule).
+# Grade C is not suitable for sale, so no discount is applied.
 GRADE_B_DISCOUNT = 15.0
-GRADE_C_DISCOUNT = 30.0
+GRADE_C_DISCOUNT = 0.0
 
 # ---------------------------------------------------------------------------
 # Hybrid engine weighting constants
@@ -245,7 +246,7 @@ class QualityAssessment(models.Model):
         if self.overall_grade == "C":
             return {
                 "apply_discount": True,
-                "discount_percentage": GRADE_C_DISCOUNT,
+                "percentage": GRADE_C_DISCOUNT,
                 "reason": (
                     "Grade C produce requires a significant discount "
                     "to move stock quickly and reduce waste."
@@ -255,7 +256,7 @@ class QualityAssessment(models.Model):
         if self.overall_grade == "B":
             return {
                 "apply_discount": True,
-                "discount_percentage": GRADE_B_DISCOUNT,
+                "percentage": GRADE_B_DISCOUNT,
                 "reason": (
                     "Grade B produce benefits from a moderate discount "
                     "to remain competitive against premium Grade A stock."
@@ -264,11 +265,10 @@ class QualityAssessment(models.Model):
             }
         return {
             "apply_discount": False,
-            "discount_percentage": 0.0,
+            "percentage": 0.0,
             "reason": "Grade A produce — no discount needed.",
             "urgency": "none",
         }
-
 
 class MLModel(models.Model):
     """

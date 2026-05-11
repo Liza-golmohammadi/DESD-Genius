@@ -123,7 +123,7 @@ class XAIService:
 
         non_technical = {
             "summary": summary,
-            "action_required": action,
+            "action": action,
             "grade_badge": grade,
             "colour_emoji": GRADE_EMOJI.get(grade, "⚪"),
         }

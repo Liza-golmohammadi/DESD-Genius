@@ -200,12 +200,13 @@ class HybridEngine:
                     "confidence": a.confidence,
                     "assessed_at": a.assessed_at,
                     "is_mock": a.is_mock,
+                    "auto_discount_applied": a.auto_discount_applied,
                 }
                 for a in recent
             ],
             "auto_discounts_this_week": auto_discounts,
-            "revenue_impact_estimate": revenue_impact,
-            "quality_trend_chart": trend_chart_b64,
+            "revenue_impact": revenue_impact,
+            "trend_chart_b64": trend_chart_b64,
             "fairness_report": fairness,
             "recommendations_for_improvement": recommendations_for_improvement,
         }

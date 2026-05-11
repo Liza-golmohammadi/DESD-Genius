@@ -4,9 +4,11 @@ from .views import (
     ReorderView, ProducerOrderListView, ProducerOrderStatusView,
     RecurringOrderListCreateView, RecurringOrderDetailView,
     RecurringOrderPlaceNowView,
+    ProducerOrderDeleteView,
 )
 
 urlpatterns = [
+    path("producer/<int:producer_order_id>/delete/", ProducerOrderDeleteView.as_view(), name="producer-order-delete"),
     path('checkout/', CheckoutView.as_view(), name='checkout'),
     path('', CustomerOrderListView.as_view(), name='order-list'),
     path('producer/', ProducerOrderListView.as_view(), name='producer-orders'),

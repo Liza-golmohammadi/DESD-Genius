@@ -205,3 +205,77 @@ class ProductInventoryUpdateView(APIView):
         serializer.save()
 
         return Response(ProductDetailSerializer(product, context={"request": request}).data)
+
+# ---------------------------------------------------------------------------
+# Product delete endpoint for AI demo
+# ---------------------------------------------------------------------------
+
+from rest_framework.views import APIView
+from rest_framework import permissions, status
+from rest_framework.response import Response
+
+
+class ProductDeleteView(APIView):
+    """
+    DELETE /api/products/<product_id>/delete/
+
+    Allows a producer to delete their own product.
+    Admin/staff can delete any product.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, product_id):
+        from products.models import Product
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response(
+                {"error": "Product not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user_role = getattr(request.user, "role", "")
+
+        if not (
+            product.producer_id == request.user.id
+            or user_role == "admin"
+            or request.user.is_staff
+        ):
+            return Response(
+                {"error": "You can only delete your own products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        product_name = product.name
+        product_id_value = product.id
+
+        try:
+            product.delete()
+            return Response(
+                {
+                    "deleted": True,
+                    "product_id": product_id_value,
+                    "product_name": product_name,
+                    "message": "Product deleted successfully.",
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as exc:
+            # Fallback: hide the product if hard delete is blocked by related records.
+            product.is_available = False
+            product.stock_quantity = 0
+            product.save(update_fields=["is_available", "stock_quantity", "updated_at"])
+
+            return Response(
+                {
+                    "deleted": False,
+                    "hidden": True,
+                    "product_id": product_id_value,
+                    "product_name": product_name,
+                    "message": "Product could not be fully deleted because it has related records, so it was hidden from the market instead.",
+                    "detail": str(exc),
+                },
+                status=status.HTTP_200_OK,
+            )
