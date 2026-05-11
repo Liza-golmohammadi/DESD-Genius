@@ -81,6 +81,15 @@ type GradeBreakdown = {
   is_mock: boolean;
 };
 
+type FeatureAttribution = {
+  attribute: string;
+  score: number;
+  threshold: number;
+  distance: number;
+  direction: "positive" | "negative";
+  influence_pct: number;
+};
+
 type XaiExplanation = {
   technical?: {
     breakdown?: GradeBreakdown;
@@ -95,6 +104,8 @@ type XaiExplanation = {
   };
   grad_cam_available?: boolean;
   grad_cam_url?: string | null;
+  heatmap_b64?: string;
+  feature_attributions?: FeatureAttribution[];
 };
 
 type AssessmentResult = {
@@ -379,21 +390,86 @@ function AssessmentModal({ result, onClose }: { result: AssessmentResult; onClos
             </div>
           )}
 
-          {/* ── XAI Heatmap ── */}
-          {heatmapUrl && (
-            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: "18px 20px" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 16 }}>🔬</span> Visual Explanation (XAI)
+          {/* ── XAI Heatmap — Grad-CAM Visualisation ── */}
+          {(xai?.heatmap_b64 || heatmapUrl) && (
+            <div style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: 14, padding: "18px 20px", overflow: "hidden" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 16 }}>🔬</span> Grad-CAM Attention Heatmap
                 <span style={{ marginLeft: 6, fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>
-                  Edge-based attention heatmap — highlighted regions influenced the model decision
+                  Simulated CNN attention — brighter regions indicate higher model focus
                 </span>
+                {result.is_mock && (
+                  <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,0.15)", borderRadius: 6, padding: "2px 8px" }}>
+                    SIMULATED
+                  </span>
+                )}
               </div>
               <img
-                src={heatmapUrl}
-                alt="XAI Heatmap"
-                style={{ width: "100%", maxHeight: 300, objectFit: "contain", borderRadius: 10, marginTop: 8, border: "1px solid #e2e8f0" }}
+                src={xai?.heatmap_b64 ? `data:image/png;base64,${xai.heatmap_b64}` : (heatmapUrl ?? "")}
+                alt="Grad-CAM Attention Heatmap"
+                style={{ width: "100%", borderRadius: 10, marginTop: 10, border: "1px solid #334155" }}
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
+              <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}>
+                {[
+                  { color: "#52b788", label: "Colour channel" },
+                  { color: "#3b82f6", label: "Size channel" },
+                  { color: "#f59e0b", label: "Ripeness channel" },
+                ].map((l) => (
+                  <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: l.color }} />
+                    <span style={{ fontSize: 11, color: "#94a3b8" }}>{l.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Feature Attributions ── */}
+          {xai?.feature_attributions && xai.feature_attributions.length > 0 && (
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: "18px 20px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 16 }}>📐</span> Feature Attribution Analysis
+                <span style={{ marginLeft: 6, fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>
+                  Which attributes most influenced the grade decision
+                </span>
+              </div>
+              {xai.feature_attributions.map((fa) => {
+                const isPositive = fa.direction === "positive";
+                return (
+                  <div key={fa.attribute} style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#374151", textTransform: "capitalize" }}>{fa.attribute}</span>
+                        <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                          {fa.score.toFixed(1)}% vs {fa.threshold.toFixed(0)}% threshold
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                          background: isPositive ? "#d1fae5" : "#fee2e2",
+                          color: isPositive ? "#065f46" : "#991b1b",
+                        }}>
+                          {isPositive ? "↑" : "↓"} {fa.distance > 0 ? "+" : ""}{fa.distance.toFixed(1)}%
+                        </span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#6b7280" }}>
+                          {fa.influence_pct.toFixed(0)}% influence
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ height: 8, background: "#e5e7eb", borderRadius: 4, overflow: "hidden", position: "relative" }}>
+                      <div style={{
+                        height: "100%", width: `${Math.min(fa.influence_pct, 100)}%`,
+                        background: isPositive
+                          ? "linear-gradient(90deg, #6ee7b7, #10b981)"
+                          : "linear-gradient(90deg, #fca5a5, #ef4444)",
+                        borderRadius: 4, transition: "width 0.6s ease",
+                      }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
