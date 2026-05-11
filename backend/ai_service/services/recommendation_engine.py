@@ -185,6 +185,30 @@ class RecommendationEngine:
             reverse=True,
         )[:limit]
 
+        # Fallback: if all purchased products were suppressed (all Grade C),
+        # recommend top Grade A products the customer has not yet bought.
+        if not ranked:
+            bought_ids = set(frequency_scores.keys())
+            grade_a_ids = list(
+                QualityAssessment.objects.filter(overall_grade="A")
+                .exclude(product_id__in=bought_ids)
+                .values_list("product_id", flat=True)
+                .distinct()[:limit]
+            )
+            for pid in grade_a_ids:
+                quality_weighted[pid] = {
+                    "score": QUALITY_A_BOOST,
+                    "original_freq": 0,
+                    "quality_weight": QUALITY_A_BOOST,
+                    "grade": "A",
+                    "boosted": True,
+                }
+            ranked = sorted(
+                quality_weighted.items(),
+                key=lambda x: x[1]["score"],
+                reverse=True,
+            )[:limit]
+
         if not ranked:
             return []
 
@@ -213,20 +237,28 @@ class RecommendationEngine:
             else:
                 reason = "Based on your purchase history."
 
+            discounted_assessment = (
+                QualityAssessment.objects.filter(
+                    product_id=product_id,
+                    auto_discount_applied=True,
+                    overall_grade=data["grade"],
+                )
+                .order_by("-assessed_at")
+                .first()
+                if data["grade"] == "B"
+                else None
+            )
             results.append({
                 "product": product,
                 "score": round(data["score"], 3),
                 "quality_boosted": data["boosted"],
                 "quality_grade": data["grade"],
                 "reason": reason,
-                "has_discount": product.id in [
-                    a.product_id for a in
-                    QualityAssessment.objects.filter(
-                        product_id=product_id,
-                        auto_discount_applied=True,
-                    ).order_by("-assessed_at")[:1]
-                ],
-                "discount_percentage": 0.0,
+                "has_discount": discounted_assessment is not None,
+                "discount_percentage": (
+                    discounted_assessment.discount_percentage
+                    if discounted_assessment else 0.0
+                ),
             })
 
         # Step 6 — Log the recommendation run.

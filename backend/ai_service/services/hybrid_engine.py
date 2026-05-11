@@ -73,21 +73,23 @@ class HybridEngine:
         surplus_assessments = (
             QualityAssessment.objects.filter(
                 auto_discount_applied=True,
-                overall_grade__in=["B", "C"],
+                overall_grade="B",
             )
             .select_related("product", "product__producer")
             .order_by("-assessed_at")[:5]
         )
-        surplus_deals = [
-            {
+        seen_products = set()
+        surplus_deals = []
+        for a in surplus_assessments:
+            if a.product_id in seen_products or not a.product.is_orderable():
+                continue
+            seen_products.add(a.product_id)
+            surplus_deals.append({
                 "product": a.product,
                 "discount_percentage": a.discount_percentage,
                 "grade": a.overall_grade,
                 "assessed_at": a.assessed_at,
-            }
-            for a in surplus_assessments
-            if a.product.is_orderable()
-        ]
+            })
 
         boosted = sum(1 for r in recs if r.get("quality_boosted"))
         suppressed = (

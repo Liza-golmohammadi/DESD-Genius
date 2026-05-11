@@ -221,33 +221,141 @@ class XAIService:
         """
         Generate a Grad-CAM heatmap to visualise CNN attention regions.
 
-        In production this uses tf-explain or pytorch-grad-cam to overlay
-        a heatmap on the produce image, showing which regions the model
-        used when deciding on the quality grade.
+        Uses TensorFlow GradientTape to compute the gradient of the
+        rotten-probability sigmoid output w.r.t. the last Conv2D layer's
+        activations. The spatial gradient map is pooled, used to weight
+        the feature maps, ReLU-clamped, normalised, and overlaid on the
+        original image as a jet colormap blend.
+
+        Preprocessing matches the Role 1 training pipeline exactly:
+        RGB → resize 224×224 (BILINEAR) → float32 → preprocess_input
+        → batch dimension.
 
         Args:
-            image_path (str): Path or URL to the input image.
-            model: Optional loaded model instance.
+            image_path (str): Local file path or HTTP/HTTPS URL.
+            model: Optional loaded Keras model. If None, the cached model
+                   from QualityClassifierService._MODEL_CACHE is used.
 
         Returns:
-            str: File path to the generated heatmap, or empty string if
-                 mock mode is active.
-
-        TODO: Implement real Grad-CAM when CNN model is trained.
-        Expected interface:
-            from tf_explain.core.grad_cam import GradCAM
-            explainer = GradCAM()
-            heatmap = explainer.explain(
-                (image, None), model, class_index=grade_index
-            )
-            explainer.save(heatmap, output_dir, 'heatmap.png')
-        Blocked by: real model training pipeline.
-        Library: pip install tf-explain  (or pip install grad-cam for PyTorch)
+            str: Media-relative URL /media/gradcam/<filename>.jpg, or
+                 empty string if the model is unavailable or fails.
         """
-        logger.info(
-            "Grad-CAM requested for %s — mock mode: returning placeholder.",
-            image_path,
-        )
-        # Return empty string; the assessment records is_mock=True so the
-        # frontend XAI panel shows the 'mock mode' notice instead.
-        return ""
+        import uuid
+        import numpy as np
+        import tensorflow as tf
+        import cv2
+        from PIL import Image as PILImage
+        from django.conf import settings
+
+        try:
+            # Resolve model from cache if not provided.
+            if model is None:
+                from ai_service.services.quality_classifier import (
+                    _MODEL_CACHE,
+                )
+                if not _MODEL_CACHE:
+                    logger.info(
+                        "Grad-CAM skipped — model not in cache yet."
+                    )
+                    return ""
+                model = next(iter(_MODEL_CACHE.values()))
+
+            # Find the last Conv2D layer (MobileNetV2 feature extractor).
+            last_conv_name = None
+            for layer in reversed(model.layers):
+                if isinstance(layer, tf.keras.layers.Conv2D):
+                    last_conv_name = layer.name
+                    break
+            if last_conv_name is None:
+                logger.warning("Grad-CAM: no Conv2D layer found.")
+                return ""
+
+            # Sub-model: input → [conv activations, prediction].
+            grad_model = tf.keras.Model(
+                inputs=model.inputs,
+                outputs=[
+                    model.get_layer(last_conv_name).output,
+                    model.output,
+                ],
+            )
+
+            # Download URL to temp file if image_path is remote.
+            tmp_file = None
+            actual_path = image_path
+            if isinstance(image_path, str) and image_path.startswith(
+                ("http://", "https://")
+            ):
+                import tempfile
+                import urllib.request
+
+                with tempfile.NamedTemporaryFile(
+                    suffix=".jpg", delete=False
+                ) as f:
+                    tmp_file = f.name
+                urllib.request.urlretrieve(image_path, tmp_file)
+                actual_path = tmp_file
+
+            try:
+                original = PILImage.open(actual_path).convert("RGB")
+            finally:
+                if tmp_file and os.path.exists(tmp_file):
+                    os.unlink(tmp_file)
+
+            original_w, original_h = original.size
+
+            # Preprocess — matches Role 1 training pipeline exactly.
+            from tensorflow.keras.applications.mobilenet_v2 import (
+                preprocess_input,
+            )
+            img_resized = original.resize((224, 224), PILImage.BILINEAR)
+            img_array = np.array(img_resized, dtype=np.float32)
+            img_batch = np.expand_dims(preprocess_input(img_array), axis=0)
+
+            # Compute gradients of rotten-probability w.r.t. conv layer.
+            with tf.GradientTape() as tape:
+                inputs = tf.cast(img_batch, tf.float32)
+                conv_outputs, predictions = grad_model(inputs)
+                # predictions[:, 0] is the single sigmoid rotten_probability.
+                loss = predictions[:, 0]
+
+            grads = tape.gradient(loss, conv_outputs)   # (1, H, W, C)
+            pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))  # (C,)
+            conv_out = conv_outputs[0]                  # (H, W, C)
+            heatmap = conv_out @ pooled_grads[..., tf.newaxis]  # (H, W, 1)
+            heatmap = tf.squeeze(heatmap)
+            heatmap = tf.maximum(heatmap, 0)            # ReLU
+            heatmap = heatmap / (tf.reduce_max(heatmap) + 1e-8)  # [0, 1]
+            heatmap_np = np.uint8(heatmap.numpy() * 255)
+
+            # Resize heatmap to original image dimensions.
+            heatmap_resized = cv2.resize(
+                heatmap_np,
+                (original_w, original_h),
+                interpolation=cv2.INTER_LINEAR,
+            )
+
+            # Apply jet colormap and blend over original (60/40 split).
+            colormap_bgr = cv2.applyColorMap(
+                heatmap_resized, cv2.COLORMAP_JET
+            )
+            colormap_rgb = cv2.cvtColor(colormap_bgr, cv2.COLOR_BGR2RGB)
+            original_np = np.array(original, dtype=np.float32)
+            overlay = (
+                0.6 * original_np + 0.4 * colormap_rgb.astype(np.float32)
+            )
+            overlay = np.clip(overlay, 0, 255).astype(np.uint8)
+
+            # Persist to MEDIA_ROOT/gradcam/.
+            gradcam_dir = os.path.join(settings.MEDIA_ROOT, "gradcam")
+            os.makedirs(gradcam_dir, exist_ok=True)
+            filename = f"gradcam_{uuid.uuid4().hex[:12]}.jpg"
+            save_path = os.path.join(gradcam_dir, filename)
+            PILImage.fromarray(overlay).save(save_path, quality=85)
+
+            url = f"/media/gradcam/{filename}"
+            logger.info("Grad-CAM generated: %s", url)
+            return url
+
+        except Exception as exc:
+            logger.warning("Grad-CAM generation failed: %s", exc)
+            return ""

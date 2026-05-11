@@ -174,9 +174,7 @@ class RecommendationItemSerializer(serializers.Serializer):
     quality_grade = serializers.CharField(
         allow_null=True, read_only=True
     )
-    quality_boosted = serializers.BooleanField(
-        source="quality_boosted", read_only=True
-    )
+    quality_boosted = serializers.BooleanField(read_only=True)
     has_discount = serializers.BooleanField(read_only=True)
     discount_percentage = serializers.FloatField(read_only=True)
 

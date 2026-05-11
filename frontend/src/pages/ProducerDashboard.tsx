@@ -253,7 +253,11 @@ function AssessmentModal({ result, onClose }: { result: AssessmentResult; onClos
   const xai = result.xai_explanation;
   const bd = result.grade_breakdown;
   const nt = xai?.non_technical;
-  const heatmapUrl = xai?.grad_cam_url ?? null;
+  const apiBase = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:8000";
+  const rawHeatmap = xai?.grad_cam_url ?? null;
+  const heatmapUrl = rawHeatmap
+    ? rawHeatmap.startsWith("/") ? `${apiBase}${rawHeatmap}` : rawHeatmap
+    : null;
 
   return (
     <div
