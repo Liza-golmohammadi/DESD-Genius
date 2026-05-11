@@ -377,6 +377,170 @@ class ModelUploadView(APIView):
         )
 
 
+class ModelListView(APIView):
+    """
+    GET /api/ai/models/
+
+    Returns all registered ML model versions with metadata.
+    Admin role required.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """List all ML model versions."""
+        if request.user.role != "admin":
+            return Response(
+                {"error": "Admin access required."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        models = MLModel.objects.all().order_by("-uploaded_at")
+        return Response(MLModelSerializer(models, many=True).data)
+
+
+class ModelActivateView(APIView):
+    """
+    POST /api/ai/models/<id>/activate/
+
+    Activates a specific ML model version and deactivates others
+    of the same type. Admin role required.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, model_id):
+        """Activate an ML model by ID."""
+        if request.user.role != "admin":
+            return Response(
+                {"error": "Admin access required."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            ml_model = MLModel.objects.get(id=model_id)
+        except MLModel.DoesNotExist:
+            return Response(
+                {"error": "Model not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        ml_model.is_active = True
+        ml_model.save()  # save() override handles deactivating others
+        return Response(MLModelSerializer(ml_model).data)
+
+
+class InteractionExportView(APIView):
+    """
+    GET /api/ai/interactions/
+
+    Returns all end-user interaction data for AI engineers to use
+    in model refinement. Supports filtering by type, date range,
+    and pagination. Admin role required.
+
+    Query params:
+        type: filter by interaction_type (e.g. purchased, viewed)
+        days: limit to last N days (default: all)
+        limit: max records (default: 500)
+        offset: pagination offset (default: 0)
+        format: 'csv' to get CSV download
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Export interaction data for model training."""
+        if request.user.role != "admin":
+            return Response(
+                {"error": "Admin access required."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        qs = ProductInteraction.objects.all().select_related(
+            "customer", "product", "product__category"
+        ).order_by("-created_at")
+
+        # Filter by interaction type.
+        interaction_type = request.query_params.get("type")
+        if interaction_type:
+            qs = qs.filter(interaction_type=interaction_type)
+
+        # Filter by date range.
+        days = request.query_params.get("days")
+        if days:
+            from django.utils import timezone
+            from datetime import timedelta
+            cutoff = timezone.now() - timedelta(days=int(days))
+            qs = qs.filter(created_at__gte=cutoff)
+
+        total_count = qs.count()
+
+        # Pagination.
+        limit = min(int(request.query_params.get("limit", 500)), 5000)
+        offset = int(request.query_params.get("offset", 0))
+        page = qs[offset:offset + limit]
+
+        # CSV export.
+        export_format = request.query_params.get("format", "json")
+        if export_format == "csv":
+            import csv
+            from django.http import HttpResponse
+            response = HttpResponse(content_type="text/csv")
+            response["Content-Disposition"] = (
+                'attachment; filename="interactions_export.csv"'
+            )
+            writer = csv.writer(response)
+            writer.writerow([
+                "id", "customer_email", "product_id", "product_name",
+                "category", "interaction_type", "quantity",
+                "override_reason", "created_at",
+            ])
+            for i in page:
+                writer.writerow([
+                    i.id,
+                    i.customer.email,
+                    i.product_id,
+                    i.product.name,
+                    i.product.category.name if i.product.category else "",
+                    i.interaction_type,
+                    i.quantity,
+                    i.override_reason,
+                    i.created_at.isoformat(),
+                ])
+            return response
+
+        # JSON response.
+        records = []
+        for i in page:
+            records.append({
+                "id": i.id,
+                "customer_email": i.customer.email,
+                "product_id": i.product_id,
+                "product_name": i.product.name,
+                "category": (
+                    i.product.category.name if i.product.category else None
+                ),
+                "interaction_type": i.interaction_type,
+                "quantity": i.quantity,
+                "override_reason": i.override_reason,
+                "created_at": i.created_at.isoformat(),
+            })
+
+        # Summary stats.
+        from django.db.models import Count
+        type_breakdown = dict(
+            ProductInteraction.objects.values_list("interaction_type")
+            .annotate(count=Count("id"))
+            .values_list("interaction_type", "count")
+        )
+
+        return Response({
+            "total_count": total_count,
+            "returned": len(records),
+            "offset": offset,
+            "limit": limit,
+            "type_breakdown": type_breakdown,
+            "records": records,
+        })
+
+
 # ---------------------------------------------------------------------------
 # Admin and Reporting Views
 # ---------------------------------------------------------------------------

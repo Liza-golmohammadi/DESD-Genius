@@ -19,6 +19,9 @@ from ai_service.views import (
     OverrideView,
     QuickReorderView,
     ModelUploadView,
+    ModelListView,
+    ModelActivateView,
+    InteractionExportView,
     AdminInsightsView,
     ProducerInsightsView,
     EvaluationReportView,
@@ -49,8 +52,21 @@ urlpatterns = [
         name="ai-quick-reorder",
     ),
 
-    # Model management (admin).
+    # Model management (admin / AI engineer).
+    path("models/", ModelListView.as_view(), name="ai-model-list"),
     path("models/upload/", ModelUploadView.as_view(), name="ai-model-upload"),
+    path(
+        "models/<int:model_id>/activate/",
+        ModelActivateView.as_view(),
+        name="ai-model-activate",
+    ),
+
+    # Interaction data export (AI engineer).
+    path(
+        "interactions/",
+        InteractionExportView.as_view(),
+        name="ai-interactions-export",
+    ),
 
     # Insights and reporting.
     path("admin/insights/", AdminInsightsView.as_view(), name="ai-admin-insights"),

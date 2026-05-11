@@ -32,6 +32,7 @@ import CommunityHub from "./pages/CommunityHub";
 import BulkOrder from "./pages/BulkOrder";
 import RecurringOrders from "./pages/RecurringOrders";
 import Recommendations from "./pages/Recommendations";
+import AIEngineering from "./pages/AIEngineering";
 import NotificationBell from "./components/NotificationBell";
 
 function Logout() {
@@ -87,6 +88,7 @@ function Layout() {
       {isAuthed && !isProducer && <NavLink to="/orders" style={pill}>Orders</NavLink>}
       {isAuthed && !isProducer && <NavLink to="/recommendations" style={pill}>AI Picks</NavLink>}
       {isAuthed && user?.role === "admin" && <NavLink to="/admin" style={pill}>Admin</NavLink>}
+      {isAuthed && user?.role === "admin" && <NavLink to="/ai-engineering" style={pill}>AI Eng</NavLink>}
       {isAuthed && isCommunityGroup && <NavLink to="/bulk-order" style={pill}>Bulk Order</NavLink>}
       {isAuthed && isRestaurant && <NavLink to="/recurring-orders" style={pill}>Recurring</NavLink>}
       <NavLink to="/rescue-market" style={pill}>Rescue</NavLink>
@@ -443,6 +445,7 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/ai-engineering" element={<AIEngineering />} />
         </Route>
 
         {/* Catch-all — MUST be last */}
