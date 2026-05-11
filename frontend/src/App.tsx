@@ -31,6 +31,7 @@ import ResolutionCenter from "./pages/ResolutionCenter";
 import CommunityHub from "./pages/CommunityHub";
 import BulkOrder from "./pages/BulkOrder";
 import RecurringOrders from "./pages/RecurringOrders";
+import Recommendations from "./pages/Recommendations";
 import NotificationBell from "./components/NotificationBell";
 
 function Logout() {
@@ -84,6 +85,7 @@ function Layout() {
       {isAuthed && <NavLink to="/producers" style={pill}>Producers</NavLink>}
       {isAuthed && isProducer && <NavLink to="/producer/dashboard" style={pill}>Dashboard</NavLink>}
       {isAuthed && !isProducer && <NavLink to="/orders" style={pill}>Orders</NavLink>}
+      {isAuthed && !isProducer && <NavLink to="/recommendations" style={pill}>AI Picks</NavLink>}
       {isAuthed && user?.role === "admin" && <NavLink to="/admin" style={pill}>Admin</NavLink>}
       {isAuthed && isCommunityGroup && <NavLink to="/bulk-order" style={pill}>Bulk Order</NavLink>}
       {isAuthed && isRestaurant && <NavLink to="/recurring-orders" style={pill}>Recurring</NavLink>}
@@ -434,6 +436,7 @@ function App() {
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/bulk-order" element={<BulkOrder />} />
           <Route path="/recurring-orders" element={<RecurringOrders />} />
+          <Route path="/recommendations" element={<Recommendations />} />
         </Route>
 
         {/* Admin only routes */}

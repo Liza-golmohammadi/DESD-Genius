@@ -266,11 +266,16 @@ function AiRecsPanel({
               PERSONALISED
             </span>
           </div>
-          {data.products_boosted > 0 && (
-            <span style={{ fontSize: 12, color: "#6b7280" }}>
-              {data.products_boosted} quality-boosted · AI grade filter active
-            </span>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {data.products_boosted > 0 && (
+              <span style={{ fontSize: 12, color: "#6b7280" }}>
+                {data.products_boosted} quality-boosted · AI grade filter active
+              </span>
+            )}
+            <Link to="/recommendations" style={{ fontSize: 12, fontWeight: 700, color: "#2d6a4f", textDecoration: "none", padding: "4px 12px", borderRadius: 8, border: "1px solid #86efac", background: "#ecfdf5", whiteSpace: "nowrap" }}>
+              View all →
+            </Link>
+          </div>
         </div>
 
         {/* Recommendations carousel */}
